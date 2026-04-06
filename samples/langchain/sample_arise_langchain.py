@@ -13,28 +13,37 @@ from azure.monitor.opentelemetry import configure_azure_monitor
 
 from openinference.instrumentation.langchain import LangChainInstrumentor
 
-configure_azure_monitor(connection_string="InstrumentationKey=...") # TODO: This will be replaced with the opentelemetry distro
+configure_azure_monitor(  # Replace with the opentelemetry distro
+    connection_string="InstrumentationKey=..."
+)
 
 LangChainInstrumentor().instrument()
 
 # If using Azure OpenAI endpoint and API KEY
-endpoint = "<AZURE_OPENAI_ENDPOINT>"
-model_name = "gpt-4.1"
-api_key = "<AZURE_OPENAI_API_KEY>"
+ENDPOINT = "<AZURE_OPENAI_ENDPOINT>"
+MODEL_NAME = "gpt-4.1"
+API_KEY = "<AZURE_OPENAI_API_KEY>"
 
 # Otherwise, set the env variable OPENAI_API_KEY
 
-image_url = "<IMAGE_URL>"
+IMAGE_URL = "<IMAGE_URL>"
 
-model = ChatOpenAI(model=model_name, api_key=api_key, base_url=endpoint) # Do not include api_key and base_url if using the OPENAI_API_KEY environment variable
-image_data = base64.b64encode(httpx.get(image_url).content).decode("utf-8")
+model = ChatOpenAI(
+    model=MODEL_NAME,
+    api_key=API_KEY,
+    base_url=ENDPOINT,  # Do not include api_key and base_url if using the OPENAI_API_KEY environment variable
+)
+image_data = base64.b64encode(httpx.get(IMAGE_URL).content).decode("utf-8")
 
 message = HumanMessage(
     content=[
         {"type": "text", "text": "describe this image"},
         {
             "type": "image_url",
-            "image_url": {"url": f"data:image/jpeg;base64,{image_data}", "detail": "low"},
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{image_data}",
+                "detail": "low",
+            },
         },
     ],
 )

@@ -1,8 +1,5 @@
 """Travel planner with nested agents — coordinator delegates to specialist agents."""
 
-from __future__ import annotations
-
-import os
 import random
 from uuid import uuid4
 
@@ -18,16 +15,15 @@ except ImportError:
     from langgraph.prebuilt import create_react_agent
 
 # If using Azure OpenAI endpoint and API KEY
-endpoint = "<AZURE_OPENAI_ENDPOINT>"
-api_key = "<AZURE_OPENAI_API_KEY>"
-model_name = "gpt-4.1"
+ENDPOINT = "<AZURE_OPENAI_ENDPOINT>"
+API_KEY = "<AZURE_OPENAI_API_KEY>"
+MODEL_NAME = "gpt-4.1"
 
 # Otherwise, set the env variable OPENAI_API_KEY
 
-configure_azure_monitor( # TODO: This will be replaced with the opentelemetry distro
-    connection_string=
-        "InstrumentationKey=...",
-    )
+configure_azure_monitor(  # Replace with the opentelemetry distro
+    connection_string="InstrumentationKey=...",
+)
 
 tracer = AzureAIOpenTelemetryTracer(name="travel_planner", provider_name="openai")
 
@@ -53,17 +49,28 @@ def search_hotels(destination: str, check_in: str, check_out: str) -> str:
 def search_activities(destination: str) -> str:
     """Find popular activities in a destination city."""
     activities = {
-        "Paris": ["Eiffel Tower at sunset", "Seine dinner cruise", "Day trip to Versailles"],
+        "Paris": [
+            "Eiffel Tower at sunset",
+            "Seine dinner cruise",
+            "Day trip to Versailles",
+        ],
         "Tokyo": ["Sushi masterclass", "Ghibli Museum", "Hakone hot springs"],
         "Rome": ["Colosseum tour", "Pasta masterclass", "Trastevere walk"],
     }
-    items = activities.get(destination, ["Sightseeing", "Local cuisine", "Museum visit"])
+    items = activities.get(
+        destination, ["Sightseeing", "Local cuisine", "Museum visit"]
+    )
     return "\n".join(f"- {a}" for a in items)
 
 
 # --- Specialist Agents ---
 def _make_llm(temperature: float = 0.3) -> ChatOpenAI:
-    return ChatOpenAI(model=model_name, api_key=api_key, base_url=endpoint, temperature=temperature) # Do not include api_key and base_url if using the OPENAI_API_KEY environment variable
+    return ChatOpenAI(
+        model=MODEL_NAME,
+        api_key=API_KEY,
+        base_url=ENDPOINT,  # Do not include api_key and base_url if using the OPENAI_API_KEY environment variable
+        temperature=temperature,
+    )
 
 
 flight_agent = create_react_agent(_make_llm(0.3), tools=[search_flights])
@@ -76,7 +83,13 @@ activity_agent = create_react_agent(_make_llm(0.5), tools=[search_activities])
 def find_flights(origin: str, destination: str, date: str) -> str:
     """Delegate to the flight specialist agent to find flights."""
     result = flight_agent.invoke(
-        {"messages": [HumanMessage(content=f"Find flights from {origin} to {destination} on {date}.")]},
+        {
+            "messages": [
+                HumanMessage(
+                    content=f"Find flights from {origin} to {destination} on {date}."
+                )
+            ]
+        },
         config={"callbacks": [tracer]},
     )
     return result["messages"][-1].content
@@ -86,7 +99,13 @@ def find_flights(origin: str, destination: str, date: str) -> str:
 def find_hotels(destination: str, check_in: str, check_out: str) -> str:
     """Delegate to the hotel specialist agent to find hotels."""
     result = hotel_agent.invoke(
-        {"messages": [HumanMessage(content=f"Find a boutique hotel in {destination} from {check_in} to {check_out}.")]},
+        {
+            "messages": [
+                HumanMessage(
+                    content=f"Find a boutique hotel in {destination} from {check_in} to {check_out}."
+                )
+            ]
+        },
         config={"callbacks": [tracer]},
     )
     return result["messages"][-1].content

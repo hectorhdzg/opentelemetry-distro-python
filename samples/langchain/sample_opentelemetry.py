@@ -1,50 +1,52 @@
-
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry.instrumentation.langchain import LangChainInstrumentor
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-# This sample demonstrates the current state of the opentelemetry-instrumentation-langchain package (unreleased) and how it can be integrated with the opentelemetry distro
+# This sample demonstrates the current state of the opentelemetry-instrumentation-langchain
+# package (unreleased) and how it can be integrated with the microsoftopentelemetry distro
+
 # If  using Azure OpenAI endpoint and API KEY
-endpoint = "<AZURE_OPENAI_ENDPOINT>"
-model_name = "gpt-4.1"
-api_key = "<AZURE_OPENAI_API_KEY>"
+ENDPOINT = "<AZURE_OPENAI_ENDPOINT>"
+MODEL_NAME = "gpt-4.1"
+API_KEY = "<AZURE_OPENAI_API_KEY>"
 
 # Otherwise, set the env variable OPENAI_API_KEY
 
-configure_azure_monitor() # TODO: This will be replaced with the opentelemetry distro
-"""
-configure_microsoft_opentelemetry(
-    connection_string="InstrumentationKey=...",
-    enable_genai_langchain=True,
-)
-"""
+configure_azure_monitor()  # Replace with the opentelemetry distro
+
+# configure_microsoft_opentelemetry(
+#     connection_string="InstrumentationKey=...",
+#     enable_genai_langchain=True,
+# )
+
 LangChainInstrumentor().instrument()
 
 # Two models with different configs — each call produces its own span
 creative_llm = ChatOpenAI(
-    model=model_name,
+    model=MODEL_NAME,
     temperature=0.9,
     max_tokens=200,
     top_p=0.95,
-    api_key=api_key, # Do not include if using the OPENAI_API_KEY environment variable
-    base_url=endpoint, # Do not include if using the OPENAI_API_KEY environment variable
+    api_key=API_KEY,  # Do not include if using the OPENAI_API_KEY environment variable
+    base_url=ENDPOINT,  # Do not include if using the OPENAI_API_KEY environment variable
 )
 
 precise_llm = ChatOpenAI(
-    model=model_name,
+    model=MODEL_NAME,
     temperature=0.0,
     max_tokens=100,
     top_p=0.1,
     frequency_penalty=0.5,
     presence_penalty=0.5,
     seed=42,
-    api_key=api_key, # Do not include if using the OPENAI_API_KEY environment variable
-    base_url=endpoint,
+    api_key=API_KEY,  # Do not include if using the OPENAI_API_KEY environment variable
+    base_url=ENDPOINT,  # Do not include if using the OPENAI_API_KEY environment variable
 )
 
 
 # --------------- Scenarios ---------------
+
 
 def multi_turn_conversation():
     """Multi-turn chat — each invoke() is a separate instrumented span."""
