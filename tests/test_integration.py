@@ -13,7 +13,7 @@ handling, and error paths.
 import unittest
 from unittest.mock import patch
 
-from microsoft.opentelemetry._configure import (
+from microsoft.opentelemetry._distro import (
     use_microsoft_opentelemetry,
 )
 
@@ -61,13 +61,19 @@ class TestPublicAPISurface(unittest.TestCase):
 class TestDefaultBehavior(unittest.TestCase):
     """Tests that Azure Monitor is enabled by default."""
 
-    @patch("microsoft.opentelemetry._configure._setup_azure_monitor")
-    def test_enabled_by_default_no_args(self, az_mock):
+    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
+    @patch("microsoft.opentelemetry._distro._setup_logging")
+    @patch("microsoft.opentelemetry._distro._setup_metrics")
+    @patch("microsoft.opentelemetry._distro._setup_tracing")
+    def test_enabled_by_default_no_args(self, tracing_mock, metrics_mock, logging_mock, az_mock):
         use_microsoft_opentelemetry()
         az_mock.assert_called_once()
 
-    @patch("microsoft.opentelemetry._configure._setup_azure_monitor")
-    def test_disabled_when_explicitly_set(self, az_mock):
+    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
+    @patch("microsoft.opentelemetry._distro._setup_logging")
+    @patch("microsoft.opentelemetry._distro._setup_metrics")
+    @patch("microsoft.opentelemetry._distro._setup_tracing")
+    def test_disabled_when_explicitly_set(self, tracing_mock, metrics_mock, logging_mock, az_mock):
         use_microsoft_opentelemetry(
             enable_azure_monitor=False,
         )

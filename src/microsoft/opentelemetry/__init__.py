@@ -4,7 +4,14 @@
 # license information.
 # -------------------------------------------------------------------------
 
-from microsoft.opentelemetry._configure import use_microsoft_opentelemetry
+"""Microsoft OpenTelemetry Distro for Python.
+
+Provides a single entry-point — :func:`use_microsoft_opentelemetry` —
+that initialises OpenTelemetry global providers (tracing, metrics, logging)
+and optionally configures Azure Monitor as an exporter.
+"""
+
+from microsoft.opentelemetry._distro import use_microsoft_opentelemetry
 
 from ._version import VERSION
 

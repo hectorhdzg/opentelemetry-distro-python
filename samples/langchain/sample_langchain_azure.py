@@ -117,8 +117,7 @@ coordinator = create_react_agent(
 def main():
     session_id = str(uuid4())
     user_request = (
-        "Plan a weekend trip to Paris from Seattle next month. "
-        + "Find flights, a boutique hotel, and fun activities."
+        "Plan a weekend trip to Paris from Seattle next month. " + "Find flights, a boutique hotel, and fun activities."
     )
 
     print("Travel Planner (Nested Agents)")
