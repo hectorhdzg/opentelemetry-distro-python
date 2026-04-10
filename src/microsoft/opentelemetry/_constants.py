@@ -35,6 +35,8 @@ _SUPPORTED_INSTRUMENTED_LIBRARIES = (
     "requests",
     "urllib",
     "urllib3",
+    # GENAI
+    "langchain",
 )
 
 # --- Microsoft Distro Constants ---

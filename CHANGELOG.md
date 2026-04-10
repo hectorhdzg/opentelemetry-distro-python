@@ -4,6 +4,8 @@
 
 ### Features Added
 
+- Add langchain instrumentation 
+  ([#26](https://github.com/microsoft/opentelemetry-distro-python/pull/26))
 - Add Microsoft Opentelemetry Distro Configuration
   ([#9](https://github.com/microsoft/opentelemetry-distro-python/pull/9))
 - Add langchain samples
