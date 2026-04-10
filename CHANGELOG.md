@@ -19,6 +19,7 @@
 
 ### Other Changes
 
+- Modify the logic to add providers when azure monitor config is disabled
 - Add support for local mypy, pylint, black checks
   ([#14](https://github.com/microsoft/opentelemetry-distro-python/pull/14))
 - Add mypy and pyright checks

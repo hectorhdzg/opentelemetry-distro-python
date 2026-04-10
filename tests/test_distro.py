@@ -34,15 +34,9 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
     """Tests for use_microsoft_opentelemetry() orchestration."""
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_azure_monitor_enabled_by_default(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
-        """Azure Monitor is enabled by default; providers are created first."""
+    def test_azure_monitor_enabled_by_default(self, azure_monitor_mock):
+        """Azure Monitor is enabled by default; providers are created through Azure Monitor setup."""
         use_microsoft_opentelemetry()
-        tracing_mock.assert_called_once()
-        metrics_mock.assert_called_once()
-        logging_mock.assert_called_once()
         azure_monitor_mock.assert_called_once()
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
@@ -115,10 +109,7 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
         azure_monitor_mock.assert_not_called()
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_enable_key_not_forwarded(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    def test_enable_key_not_forwarded(self, azure_monitor_mock):
         """enable_azure_monitor is consumed, not forwarded."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
@@ -127,33 +118,30 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
         actual_kwargs = azure_monitor_mock.call_args[1]
         self.assertNotIn("enable_azure_monitor", actual_kwargs)
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_disable_tracing_skips_tracing(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    def test_disable_tracing_skips_tracing(self, tracing_mock, metrics_mock, logging_mock):
         """disable_tracing=True skips TracerProvider creation."""
         use_microsoft_opentelemetry(disable_tracing=True, enable_azure_monitor=False)
         tracing_mock.assert_not_called()
         metrics_mock.assert_called_once()
         logging_mock.assert_called_once()
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_disable_metrics_skips_metrics(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    def test_disable_metrics_skips_metrics(self, tracing_mock, metrics_mock, logging_mock):
         """disable_metrics=True skips MeterProvider creation."""
         use_microsoft_opentelemetry(disable_metrics=True, enable_azure_monitor=False)
         tracing_mock.assert_called_once()
         metrics_mock.assert_not_called()
         logging_mock.assert_called_once()
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_disable_logging_skips_logging(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    def test_disable_logging_skips_logging(self, tracing_mock, metrics_mock, logging_mock):
         """disable_logging=True skips LoggerProvider creation."""
         use_microsoft_opentelemetry(disable_logging=True, enable_azure_monitor=False)
         tracing_mock.assert_called_once()
@@ -171,8 +159,7 @@ class TestOTelProviderSetup(unittest.TestCase):
         self.assertIsInstance(tp, TracerProvider)
         set_tp_mock.assert_called_once_with(tp)
 
-    @patch("microsoft.opentelemetry._distro.set_tracer_provider")
-    def test_setup_tracing_adds_span_processors(self, set_tp_mock):
+    def test_setup_tracing_adds_span_processors(self):
         """_setup_tracing adds user-supplied span processors."""
         sp = MagicMock()
         tp = _setup_tracing(TEST_RESOURCE, {"span_processors": [sp]})
@@ -204,10 +191,11 @@ class TestSetupAzureMonitor(unittest.TestCase):
         with patch.dict(sys.modules, mods):
             from microsoft.opentelemetry._distro import _setup_azure_monitor
 
-            _setup_azure_monitor(
+            result = _setup_azure_monitor(
                 connection_string=TEST_CONNECTION_STRING,
                 resource=TEST_RESOURCE,
             )
+            self.assertTrue(result)
             mock_module.configure_azure_monitor.assert_called_once_with(
                 connection_string=TEST_CONNECTION_STRING,
                 resource=TEST_RESOURCE,
@@ -244,24 +232,38 @@ class TestSetupAzureMonitor(unittest.TestCase):
             self.assertEqual(actual_kwargs["logger_name"], "test")
 
     def test_exception_handled_gracefully(self):
-        """If configure_azure_monitor raises, it is caught and logged."""
+        """If configure_azure_monitor raises, it is caught and logged; returns False."""
         mods, mock_module = self._make_mock_modules()
         mock_module.configure_azure_monitor.side_effect = Exception("config error")
         with patch.dict(sys.modules, mods):
             from microsoft.opentelemetry._distro import _setup_azure_monitor
 
             # Should not raise
-            _setup_azure_monitor(connection_string=TEST_CONNECTION_STRING)
+            result = _setup_azure_monitor(connection_string=TEST_CONNECTION_STRING)
+            self.assertFalse(result)
+
+    @patch("microsoft.opentelemetry._distro._setup_azure_monitor", return_value=False)
+    @patch("microsoft.opentelemetry._distro._setup_logging")
+    @patch("microsoft.opentelemetry._distro._setup_metrics")
+    @patch("microsoft.opentelemetry._distro._setup_tracing")
+    def test_fallback_providers_created_on_azure_monitor_failure(
+        self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock
+    ):
+        """When Azure Monitor setup fails, bare providers are created as fallback."""
+        use_microsoft_opentelemetry(
+            azure_monitor_connection_string=TEST_CONNECTION_STRING,
+        )
+        azure_monitor_mock.assert_called_once()
+        tracing_mock.assert_called_once()
+        metrics_mock.assert_called_once()
+        logging_mock.assert_called_once()
 
 
 class TestEnableKwargsPassthrough(unittest.TestCase):
     """Tests that azure_monitor_ kwargs are remapped and passed through."""
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_enable_live_metrics_passed_through(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    def test_enable_live_metrics_passed_through(self, azure_monitor_mock):
         """azure_monitor_enable_live_metrics is remapped and forwarded."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
@@ -271,11 +273,8 @@ class TestEnableKwargsPassthrough(unittest.TestCase):
         self.assertEqual(actual_kwargs["enable_live_metrics"], False)
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
     def test_enable_performance_counters_passed_through(
-        self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock
+        self, azure_monitor_mock
     ):
         """azure_monitor_enable_performance_counters is remapped and forwarded."""
         use_microsoft_opentelemetry(
@@ -290,10 +289,7 @@ class TestAllConfigOptions(unittest.TestCase):
     """End-to-end test that every documented configuration option works."""
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_all_options_end_to_end(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    def test_all_options_end_to_end(self, azure_monitor_mock):
         """Every documented kwarg is accepted, remapped if needed, and forwarded."""
         from logging import Formatter
 
