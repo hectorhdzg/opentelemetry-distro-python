@@ -148,7 +148,7 @@ def _current_parent_run_id() -> UUID | None:
     for v in config.values():
         if isinstance(v, langchain_core.callbacks.BaseCallbackManager):
             if v.parent_run_id:
-                return v.parent_run_id
+                return UUID(str(v.parent_run_id))
     return None
 
 

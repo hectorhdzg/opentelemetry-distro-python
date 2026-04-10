@@ -62,7 +62,7 @@ def safe_json_dumps(obj: Any, **kwargs: Any) -> str:
     This wrapper adds ``default=str`` for LangChain data that may contain
     UUIDs, datetime objects, or other non-JSON-native types.
     """
-    return gen_ai_json_dumps(obj, default=str, **kwargs)
+    return str(gen_ai_json_dumps(obj, default=str, **kwargs))
 
 
 def as_utc_nano(dt: datetime.datetime) -> int:
@@ -71,6 +71,7 @@ def as_utc_nano(dt: datetime.datetime) -> int:
 
 KeyType = TypeVar("KeyType")
 ValueType = TypeVar("ValueType")
+
 
 # pylint: disable=too-many-branches, abstract-method, too-many-return-statements
 # pylint: disable=broad-exception-caught

@@ -17,9 +17,9 @@ from microsoft.genai._langchain._utils import (
     INVOKE_AGENT_OPERATION_NAME,
 )
 
-
 _NOW = datetime.datetime(2024, 6, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
 _NOW_END = datetime.datetime(2024, 6, 1, 12, 0, 1, tzinfo=datetime.timezone.utc)
+
 
 # pylint: disable=unused-variable, broad-exception-caught
 def _make_run(**kwargs):
@@ -313,7 +313,7 @@ class TestErrorHandlers(TestCase):
         run = _make_run(run_type="llm", name="gpt-4")
         tracer._start_trace(run)
         error = ValueError("test error")
-        with patch.object(tracer, '_persist_run'):
+        with patch.object(tracer, "_persist_run"):
             try:
                 tracer.on_llm_error(error, run_id=run.id)
             except Exception:
@@ -327,7 +327,7 @@ class TestErrorHandlers(TestCase):
         run = _make_run(run_type="chain", name="test")
         tracer._start_trace(run)
         error = RuntimeError("chain failed")
-        with patch.object(tracer, '_persist_run'):
+        with patch.object(tracer, "_persist_run"):
             try:
                 tracer.on_chain_error(error, run_id=run.id)
             except Exception:
@@ -341,7 +341,7 @@ class TestErrorHandlers(TestCase):
         run = _make_run(run_type="tool", name="calc")
         tracer._start_trace(run)
         error = RuntimeError("tool failed")
-        with patch.object(tracer, '_persist_run'):
+        with patch.object(tracer, "_persist_run"):
             try:
                 tracer.on_tool_error(error, run_id=run.id)
             except Exception:

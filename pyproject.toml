@@ -14,6 +14,7 @@ dependencies = [
     "azure-monitor-opentelemetry-exporter~=1.0.0b49",
     "opentelemetry-sdk==1.40",
     "opentelemetry-api==1.40",
+    "opentelemetry-exporter-otlp-proto-http==1.40",
     "opentelemetry-instrumentation==0.61b0",
     "opentelemetry-instrumentation-django==0.61b0",
     "opentelemetry-instrumentation-fastapi==0.61b0",

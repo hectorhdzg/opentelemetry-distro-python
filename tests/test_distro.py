@@ -101,11 +101,9 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
             enable_azure_monitor=False,
         )
-        # Providers are still set up
         tracing_mock.assert_called_once()
         metrics_mock.assert_called_once()
         logging_mock.assert_called_once()
-        # But Azure Monitor is not configured
         azure_monitor_mock.assert_not_called()
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
@@ -163,8 +161,8 @@ class TestOTelProviderSetup(unittest.TestCase):
         """_setup_tracing adds user-supplied span processors."""
         sp = MagicMock()
         tp = _setup_tracing(TEST_RESOURCE, {"span_processors": [sp]})
-        # Processor is in the provider's active span processors
         self.assertIsInstance(tp, TracerProvider)
+        self.assertIn(sp, tp._active_span_processor._span_processors)
 
     @patch("microsoft.opentelemetry._distro.set_meter_provider")
     def test_setup_metrics_creates_provider(self, set_mp_mock):
@@ -273,9 +271,7 @@ class TestEnableKwargsPassthrough(unittest.TestCase):
         self.assertEqual(actual_kwargs["enable_live_metrics"], False)
 
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    def test_enable_performance_counters_passed_through(
-        self, azure_monitor_mock
-    ):
+    def test_enable_performance_counters_passed_through(self, azure_monitor_mock):
         """azure_monitor_enable_performance_counters is remapped and forwarded."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
@@ -288,8 +284,9 @@ class TestEnableKwargsPassthrough(unittest.TestCase):
 class TestAllConfigOptions(unittest.TestCase):
     """End-to-end test that every documented configuration option works."""
 
+    @patch("microsoft.opentelemetry._distro.is_otlp_enabled", return_value=False)
     @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    def test_all_options_end_to_end(self, azure_monitor_mock):
+    def test_all_options_end_to_end(self, azure_monitor_mock, otlp_mock):
         """Every documented kwarg is accepted, remapped if needed, and forwarded."""
         from logging import Formatter
 

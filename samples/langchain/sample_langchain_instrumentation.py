@@ -7,7 +7,6 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
 
-
 endpoint = "<AZURE_OPENAI_ENDPOINT>"
 model_name = "gpt-4.1"
 deployment_name = "gpt-4.1"
@@ -18,8 +17,9 @@ use_microsoft_opentelemetry(
     sampling_ratio=1.0,
     instrumentation_options={
         "langchain": {"enabled": True},
-    }
+    },
 )
+
 
 def main():
 
@@ -33,7 +33,7 @@ def main():
         presence_penalty=0.5,
         stop_sequences=["\n", "Human:", "AI:"],
         seed=100,
-        api_key=api_key, # Do not include api_key and base_url if using the OPENAI_API_KEY environment variable
+        api_key=api_key,  # Do not include api_key and base_url if using the OPENAI_API_KEY environment variable
         base_url=endpoint,
     )
 
@@ -71,7 +71,7 @@ def main():
         llm,
         tools=[get_population, get_famous_landmark],
         system_prompt="You are a helpful travel assistant. Use the tools to answer questions about cities.",
-        name="Travel_Assistant"
+        name="Travel_Assistant",
     )
 
     print("\n--- Agent run ---")
@@ -79,8 +79,6 @@ def main():
     agent_result = agent.invoke({"messages": [("human", user_input)]})
     output = agent_result["messages"][-1].content
     print("Agent output:\n", output)
-
-
 
 
 if __name__ == "__main__":

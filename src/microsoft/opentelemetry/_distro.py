@@ -37,6 +37,7 @@ from microsoft.opentelemetry._constants import (
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
 from microsoft.opentelemetry._instrumentation import get_dist_dependency_conflicts
+from microsoft.opentelemetry._otlp import is_otlp_enabled, create_otlp_components
 
 _logger = getLogger(__name__)
 
@@ -99,6 +100,9 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
         else:
             otel_kwargs[key] = value
 
+    # ---- OTLP exporters (append to user-supplied processors/readers) ----
+    _append_otlp_components(otel_kwargs)
+
     # ---- Provider initialisation ----
     setup_bare_providers = True
     if enable_azure_monitor:
@@ -125,6 +129,36 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
 
     # ---- Instrumentations (always, after providers are set) ----
     _setup_instrumentations(otel_kwargs)
+
+
+# ---------------------------------------------------------------------------
+# OTLP component injection
+# ---------------------------------------------------------------------------
+
+
+def _append_otlp_components(otel_kwargs: Dict[str, Any]) -> None:
+    """Append OTLP processors/readers to otel_kwargs when OTLP is enabled.
+
+    Respects per-signal disable flags so that disabled pipelines do not
+    get unnecessary exporters.
+    """
+    disable_tracing = otel_kwargs.get(DISABLE_TRACING_ARG, False)
+    disable_logging = otel_kwargs.get(DISABLE_LOGGING_ARG, False)
+    disable_metrics = otel_kwargs.get(DISABLE_METRICS_ARG, False)
+
+    if not is_otlp_enabled() or (disable_tracing and disable_logging and disable_metrics):
+        return
+
+    otlp = create_otlp_components()
+    if not disable_tracing and otlp.span_processor:
+        otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(otlp.span_processor)
+    if not disable_logging and otlp.log_record_processor:
+        otel_kwargs[LOG_RECORD_PROCESSORS_ARG] = list(otel_kwargs.get(LOG_RECORD_PROCESSORS_ARG) or [])
+        otel_kwargs[LOG_RECORD_PROCESSORS_ARG].append(otlp.log_record_processor)
+    if not disable_metrics and otlp.metric_reader:
+        otel_kwargs[METRIC_READERS_ARG] = list(otel_kwargs.get(METRIC_READERS_ARG) or [])
+        otel_kwargs[METRIC_READERS_ARG].append(otlp.metric_reader)
 
 
 # ---------------------------------------------------------------------------

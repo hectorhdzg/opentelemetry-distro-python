@@ -81,8 +81,9 @@ CONTEXT_ATTRIBUTES = (
     "llm.prompt_template.version",
 )
 
+
 # pylint: disable=broad-exception-caught
-class LangChainTracer(BaseTracer): # pylint: disable=too-many-ancestors, too-many-instance-attributes
+class LangChainTracer(BaseTracer):  # pylint: disable=too-many-ancestors, too-many-instance-attributes
     _MAX_TRACKED_RUNS = 10000
 
     __slots__ = (
@@ -107,8 +108,8 @@ class LangChainTracer(BaseTracer): # pylint: disable=too-many-ancestors, too-man
     ) -> None:
         super().__init__(*args, **kwargs)
         if TYPE_CHECKING:
-            assert self.run_map
-        self.run_map = DictWithLock[str, Run](self.run_map)
+            assert self.run_map  # type: ignore[has-type]
+        self.run_map = DictWithLock[str, Run](self.run_map)  # type: ignore[has-type,misc]
         self._tracer = tracer
         self._separate_trace_from_runtime_context = separate_trace_from_runtime_context
         self._agent_config: dict[str, Any] = agent_config or {}
@@ -117,7 +118,7 @@ class LangChainTracer(BaseTracer): # pylint: disable=too-many-ancestors, too-man
         self._agent_wrapper_spans: dict[UUID, Span] = {}
         self._spans_by_run: OrderedDict[UUID, Span] = OrderedDict()
         self._event_logger = event_logger
-        self._lock = RLock()
+        self._lock = RLock()  # type: ignore[misc]
 
     def get_span(self, run_id: UUID) -> Span | None:
         with self._lock:
@@ -300,9 +301,6 @@ class LangChainTracer(BaseTracer): # pylint: disable=too-many-ancestors, too-man
             _apply_error_attributes(span, Error(message=str(error), type=type(error)))
         return super().on_tool_error(error, *args, run_id=run_id, **kwargs)
 
-    def on_chat_model_start(self, *args: Any, **kwargs: Any) -> Run:
-        return super().on_chat_model_start(*args, **kwargs)  # type: ignore
-
     # ---- Agent detection & aggregation ----------------------------------------
 
     @staticmethod
@@ -354,7 +352,7 @@ class LangChainTracer(BaseTracer): # pylint: disable=too-many-ancestors, too-man
                     return str(name)
         # 4. Run name itself if it's not just "LangGraph"
         if run.name and run.name != "LangGraph":
-            return run.name
+            return str(run.name)
         return None
 
     @staticmethod
@@ -370,7 +368,7 @@ class LangChainTracer(BaseTracer): # pylint: disable=too-many-ancestors, too-man
             return str(serialized["name"])
         return "LangGraph"
 
-    def _aggregate_into_parent(self, run: Run) -> None: # pylint: disable=too-many-branches
+    def _aggregate_into_parent(self, run: Run) -> None:  # pylint: disable=too-many-branches
         """Aggregate child run content into the parent agent span's content."""
         parent_id = run.parent_run_id
         if not parent_id:
@@ -422,7 +420,7 @@ class LangChainTracer(BaseTracer): # pylint: disable=too-many-ancestors, too-man
     def _find_agent_ancestor(self, run: Run) -> UUID | None:
         """Walk up the run tree to find the nearest agent ancestor run_id."""
         run_map = self.run_map
-        current_id = run.parent_run_id
+        current_id: UUID | None = run.parent_run_id
         while current_id:
             if current_id in self._agent_run_ids:
                 return current_id

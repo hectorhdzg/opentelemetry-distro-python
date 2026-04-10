@@ -299,7 +299,6 @@ class TestConfigurations(TestCase):
                 "previewlib1": {"enabled": True, "foo": "bar"},
                 "previewlib2": {"foo": "bar"},
                 "langchain": {"enabled": False},
-
             }
         )
 

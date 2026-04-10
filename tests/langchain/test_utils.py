@@ -335,18 +335,22 @@ class TestInvocationParameters(TestCase):
 class TestFunctionCalls(TestCase):
     def test_extracts_function_call(self):
         outputs = {
-            "generations": [[{
-                "message": {
-                    "kwargs": {
-                        "additional_kwargs": {
-                            "function_call": {
-                                "name": "get_weather",
-                                "arguments": '{"city": "NYC"}',
+            "generations": [
+                [
+                    {
+                        "message": {
+                            "kwargs": {
+                                "additional_kwargs": {
+                                    "function_call": {
+                                        "name": "get_weather",
+                                        "arguments": '{"city": "NYC"}',
+                                    }
+                                }
                             }
                         }
                     }
-                }
-            }]]
+                ]
+            ]
         }
         result = dict(function_calls(outputs))
         self.assertEqual(result[GEN_AI_TOOL_NAME_KEY], "get_weather")
