@@ -61,23 +61,20 @@ class TestPublicAPISurface(unittest.TestCase):
 class TestDefaultBehavior(unittest.TestCase):
     """Tests that Azure Monitor is enabled by default."""
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_enabled_by_default_no_args(self, tracing_mock, metrics_mock, logging_mock, az_mock):
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_enabled_by_default_no_args(self, append_mock):
         use_microsoft_opentelemetry()
-        az_mock.assert_called_once()
+        append_mock.assert_called_once()
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components")
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_disabled_when_explicitly_set(self, tracing_mock, metrics_mock, logging_mock, az_mock):
+    def test_disabled_when_explicitly_set(self, tracing_mock, metrics_mock, logging_mock, append_mock):
         use_microsoft_opentelemetry(
             enable_azure_monitor=False,
         )
-        az_mock.assert_not_called()
+        append_mock.assert_not_called()
 
 
 if __name__ == "__main__":

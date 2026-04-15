@@ -8,7 +8,9 @@
 # is discoverable when this package is installed in editable/development mode.
 __path__ = __import__("pkgutil").extend_path(__path__, __name__)
 
-from microsoft.opentelemetry._azure_monitor._configure import configure_azure_monitor
+from microsoft.opentelemetry._azure_monitor._configure import (
+    configure_azure_monitor,
+)
 
 from ._version import VERSION
 

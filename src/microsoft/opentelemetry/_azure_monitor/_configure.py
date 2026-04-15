@@ -5,14 +5,12 @@
 # --------------------------------------------------------------------------
 from logging import getLogger, Formatter
 from typing import Any, Dict, List, Optional, cast
-from opentelemetry.metrics import set_meter_provider
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader, MetricReader
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import set_tracer_provider
 
 
 from microsoft.opentelemetry._azure_monitor._browser_sdk_loader import setup_snippet_injection
@@ -187,14 +185,13 @@ def _setup_tracing(configurations: Dict[str, ConfigurationValue]):
         trace_exporter,
     )
     tracer_provider.add_span_processor(bsp)
-    set_tracer_provider(tracer_provider)
+    return tracer_provider
 
 
-def _setup_logging(configurations: Dict[str, ConfigurationValue]):
+def _setup_logging(configurations: Dict[str, ConfigurationValue]):  # pylint: disable=inconsistent-return-statements
     # Setup logging
     # Use try catch while signal is experimental
     try:
-        from opentelemetry._logs import set_logger_provider
         from opentelemetry.sdk._logs import LoggerProvider
         from opentelemetry.instrumentation.logging.handler import LoggingHandler
         from azure.monitor.opentelemetry.exporter.export.logs._processor import (
@@ -223,7 +220,6 @@ def _setup_logging(configurations: Dict[str, ConfigurationValue]):
             {"enable_trace_based_sampling_for_logs": enable_trace_based_sampling_for_logs},
         )
         logger_provider.add_log_record_processor(log_record_processor)
-        set_logger_provider(logger_provider)
         logger_name: str = configurations[LOGGER_NAME_ARG]  # type: ignore
         logging_formatter: Optional[Formatter] = configurations.get(LOGGING_FORMATTER_ARG)  # type: ignore
         logger = getLogger(logger_name)
@@ -240,6 +236,7 @@ def _setup_logging(configurations: Dict[str, ConfigurationValue]):
                         ex,
                     )
             logger.addHandler(handler)
+        return logger_provider
 
     except ImportError as ex:
         # If the events is not available, we will not set it up.
@@ -265,7 +262,7 @@ def _setup_metrics(configurations: Dict[str, ConfigurationValue]):
     )
     if enable_performance_counters_config:
         enable_performance_counters(meter_provider=meter_provider)
-    set_meter_provider(meter_provider)
+    return meter_provider
 
 
 def _setup_live_metrics(configurations):

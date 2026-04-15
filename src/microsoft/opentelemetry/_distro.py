@@ -13,6 +13,8 @@ from opentelemetry.sdk.metrics.export import MetricReader
 from opentelemetry.sdk.metrics.view import View
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry._logs import set_logger_provider
 from opentelemetry.trace import set_tracer_provider
 from opentelemetry.util._importlib_metadata import (
     EntryPoint,
@@ -37,7 +39,10 @@ from microsoft.opentelemetry._constants import (
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
 from microsoft.opentelemetry._instrumentation import get_dist_dependency_conflicts
-from microsoft.opentelemetry._otlp import is_otlp_enabled, create_otlp_components
+from microsoft.opentelemetry._utils import (
+    _append_azure_monitor_components,
+    _append_otlp_components,
+)
 
 _logger = getLogger(__name__)
 
@@ -103,62 +108,50 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
     # ---- OTLP exporters (append to user-supplied processors/readers) ----
     _append_otlp_components(otel_kwargs)
 
-    # ---- Provider initialisation ----
-    setup_bare_providers = True
+    # ---- Build and register providers ----
+    tracer_provider: Optional[TracerProvider] = None
+    meter_provider: Optional[MeterProvider] = None
+    logger_provider: Optional[LoggerProvider] = None
+
     if enable_azure_monitor:
-        merged = {**otel_kwargs, **azure_monitor_kwargs}
-        if _setup_azure_monitor(**merged):
-            setup_bare_providers = False
+        tracer_provider, meter_provider, logger_provider = _append_azure_monitor_components(
+            otel_kwargs, azure_monitor_kwargs
+        )
 
-    if setup_bare_providers:
-        # Either Azure Monitor is disabled, or setup failed — create bare
-        # providers so the global tracer/meter/logger are still usable.
-        resource = otel_kwargs.get(RESOURCE_ARG) or Resource.create()
-        disable_tracing = otel_kwargs.get(DISABLE_TRACING_ARG, False)
-        disable_logging = otel_kwargs.get(DISABLE_LOGGING_ARG, False)
-        disable_metrics = otel_kwargs.get(DISABLE_METRICS_ARG, False)
-
-        if not disable_tracing:
-            _setup_tracing(resource, otel_kwargs)
-        if not disable_metrics:
-            _setup_metrics(resource, otel_kwargs)
-        if not disable_logging:
-            _setup_logging(resource, otel_kwargs)
-        if not enable_azure_monitor:
-            _logger.info("Azure Monitor exporter explicitly disabled.")
-
-    # ---- Instrumentations (always, after providers are set) ----
-    _setup_instrumentations(otel_kwargs)
-
-
-# ---------------------------------------------------------------------------
-# OTLP component injection
-# ---------------------------------------------------------------------------
-
-
-def _append_otlp_components(otel_kwargs: Dict[str, Any]) -> None:
-    """Append OTLP processors/readers to otel_kwargs when OTLP is enabled.
-
-    Respects per-signal disable flags so that disabled pipelines do not
-    get unnecessary exporters.
-    """
+    # If Azure Monitor was disabled or failed to create a provider for a
+    # signal, fall back to creating a plain provider from otel_kwargs so
+    # that OTLP (and any user-supplied processors) still work.
+    resource = otel_kwargs.get(RESOURCE_ARG) or Resource.create()
     disable_tracing = otel_kwargs.get(DISABLE_TRACING_ARG, False)
     disable_logging = otel_kwargs.get(DISABLE_LOGGING_ARG, False)
     disable_metrics = otel_kwargs.get(DISABLE_METRICS_ARG, False)
 
-    if not is_otlp_enabled() or (disable_tracing and disable_logging and disable_metrics):
-        return
+    # When Azure Monitor is enabled, its _setup_* functions already create
+    # providers that include OTLP + user-supplied components, so the checks
+    # below are no-ops. These only run when Azure Monitor is disabled or
+    # its setup failed, to create bare providers and register them.
+    if tracer_provider is None and not disable_tracing:
+        tracer_provider = _setup_tracing(resource, otel_kwargs)
+    if meter_provider is None and not disable_metrics:
+        meter_provider = _setup_metrics(resource, otel_kwargs)
+    if logger_provider is None and not disable_logging:
+        logger_provider = _setup_logging(resource, otel_kwargs)
 
-    otlp = create_otlp_components()
-    if not disable_tracing and otlp.span_processor:
-        otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
-        otel_kwargs[SPAN_PROCESSORS_ARG].append(otlp.span_processor)
-    if not disable_logging and otlp.log_record_processor:
-        otel_kwargs[LOG_RECORD_PROCESSORS_ARG] = list(otel_kwargs.get(LOG_RECORD_PROCESSORS_ARG) or [])
-        otel_kwargs[LOG_RECORD_PROCESSORS_ARG].append(otlp.log_record_processor)
-    if not disable_metrics and otlp.metric_reader:
-        otel_kwargs[METRIC_READERS_ARG] = list(otel_kwargs.get(METRIC_READERS_ARG) or [])
-        otel_kwargs[METRIC_READERS_ARG].append(otlp.metric_reader)
+    # Register the created providers as the OTel global singletons
+    if tracer_provider is not None:
+        set_tracer_provider(tracer_provider)
+    if meter_provider is not None:
+        set_meter_provider(meter_provider)
+    if logger_provider is not None:
+        set_logger_provider(logger_provider)
+
+    # ---- Instrumentations (always, after providers are set) ----
+    _setup_instrumentations(otel_kwargs)
+
+    # Log when Azure Monitor is explicitly opted out, so users can
+    # confirm the setting took effect.
+    if not enable_azure_monitor:
+        _logger.info("Azure Monitor exporter explicitly disabled.")
 
 
 # ---------------------------------------------------------------------------
@@ -170,11 +163,10 @@ def _setup_tracing(
     resource: Resource,
     otel_kwargs: Dict[str, Any],
 ) -> TracerProvider:
-    """Create and register a TracerProvider with user-supplied span processors."""
+    """Create a TracerProvider with user-supplied span processors."""
     tracer_provider = TracerProvider(resource=resource)
     for sp in otel_kwargs.get(SPAN_PROCESSORS_ARG) or []:
         tracer_provider.add_span_processor(sp)
-    set_tracer_provider(tracer_provider)
     return tracer_provider
 
 
@@ -182,7 +174,7 @@ def _setup_metrics(
     resource: Resource,
     otel_kwargs: Dict[str, Any],
 ) -> MeterProvider:
-    """Create and register a MeterProvider with user-supplied readers/views."""
+    """Create a MeterProvider with user-supplied readers/views."""
     readers: List[MetricReader] = list(otel_kwargs.get(METRIC_READERS_ARG) or [])
     views: List[View] = list(otel_kwargs.get(VIEWS_ARG) or [])
     meter_provider = MeterProvider(
@@ -190,18 +182,16 @@ def _setup_metrics(
         resource=resource,
         views=views,
     )
-    set_meter_provider(meter_provider)
     return meter_provider
 
 
 def _setup_logging(
     resource: Resource,
     otel_kwargs: Dict[str, Any],
-) -> Any:
-    """Create and register a LoggerProvider with user-supplied processors."""
+) -> LoggerProvider | None:
+    """Create a LoggerProvider with user-supplied processors."""
     try:
-        from opentelemetry._logs import set_logger_provider
-        from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+        from opentelemetry.instrumentation.logging.handler import LoggingHandler
     except ImportError:
         _logger.warning(
             "OpenTelemetry logging SDK not available. "
@@ -212,7 +202,6 @@ def _setup_logging(
     logger_provider = LoggerProvider(resource=resource)
     for lrp in otel_kwargs.get(LOG_RECORD_PROCESSORS_ARG) or []:
         logger_provider.add_log_record_processor(lrp)
-    set_logger_provider(logger_provider)
 
     logger_name: str = otel_kwargs.get(LOGGER_NAME_ARG, "")
     logging_formatter: Optional[Formatter] = otel_kwargs.get(LOGGING_FORMATTER_ARG)
@@ -288,37 +277,3 @@ def _setup_instrumentations(otel_kwargs: Dict[str, Any]) -> None:
                 lib_name,
                 exc_info=ex,
             )
-
-
-# ---------------------------------------------------------------------------
-# Azure Monitor plugin
-# ---------------------------------------------------------------------------
-
-
-def _setup_azure_monitor(**kwargs: object) -> bool:
-    """Delegate Azure Monitor exporter setup.
-
-    Passes the already-initialised providers to Azure Monitor so it
-    can attach its exporters, samplers, and processors.
-
-    :returns: True if Azure Monitor was configured successfully, False otherwise.
-    """
-    try:
-        from microsoft.opentelemetry._azure_monitor import configure_azure_monitor
-    except ImportError:
-        _logger.warning(
-            "Failed to import Azure Monitor components. Verify azure-monitor-opentelemetry-exporter is installed."
-        )
-        return False
-
-    try:
-        configure_azure_monitor(**kwargs)
-        _logger.info("Azure Monitor configured via azure-monitor-opentelemetry package")
-        return True
-    except Exception as ex:  # pylint: disable=broad-exception-caught
-        _logger.warning(
-            "Failed to configure Azure Monitor: %s",
-            ex,
-            exc_info=True,
-        )
-        return False

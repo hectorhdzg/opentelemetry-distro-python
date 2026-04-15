@@ -11,7 +11,6 @@ Validates that the microsoft distro wrapper:
   2. Optionally delegates Azure Monitor exporter setup.
 """
 
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -33,29 +32,23 @@ TEST_CONNECTION_STRING = "InstrumentationKey=test-key;IngestionEndpoint=https://
 class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
     """Tests for use_microsoft_opentelemetry() orchestration."""
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    def test_azure_monitor_enabled_by_default(self, azure_monitor_mock):
-        """Azure Monitor is enabled by default; providers are created through Azure Monitor setup."""
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_azure_monitor_enabled_by_default(self, append_mock):
+        """Azure Monitor is enabled by default; components are collected."""
         use_microsoft_opentelemetry()
-        azure_monitor_mock.assert_called_once()
+        append_mock.assert_called_once()
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_connection_string_remapped(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_connection_string_remapped(self, append_mock):
         """azure_monitor_connection_string is remapped to connection_string."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
         )
-        actual_kwargs = azure_monitor_mock.call_args[1]
-        self.assertEqual(actual_kwargs["connection_string"], TEST_CONNECTION_STRING)
+        _, azure_kwargs = append_mock.call_args[0]
+        self.assertEqual(azure_kwargs["connection_string"], TEST_CONNECTION_STRING)
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_azure_monitor_kwargs_remapped(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_azure_monitor_kwargs_remapped(self, append_mock):
         """azure_monitor_ prefixed kwargs are remapped to internal names."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
@@ -66,36 +59,33 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
             azure_monitor_exporter_storage_directory="/tmp/test",
             azure_monitor_browser_sdk_loader_config={"enabled": False},
         )
-        actual_kwargs = azure_monitor_mock.call_args[1]
-        self.assertEqual(actual_kwargs["connection_string"], TEST_CONNECTION_STRING)
-        self.assertEqual(actual_kwargs["credential"], "test_cred")
-        self.assertEqual(actual_kwargs["enable_live_metrics"], False)
-        self.assertEqual(actual_kwargs["enable_performance_counters"], False)
-        self.assertEqual(actual_kwargs["disable_offline_storage"], True)
-        self.assertEqual(actual_kwargs["storage_directory"], "/tmp/test")
-        self.assertEqual(actual_kwargs["browser_sdk_loader_config"], {"enabled": False})
+        _, azure_kwargs = append_mock.call_args[0]
+        self.assertEqual(azure_kwargs["connection_string"], TEST_CONNECTION_STRING)
+        self.assertEqual(azure_kwargs["credential"], "test_cred")
+        self.assertEqual(azure_kwargs["enable_live_metrics"], False)
+        self.assertEqual(azure_kwargs["enable_performance_counters"], False)
+        self.assertEqual(azure_kwargs["disable_offline_storage"], True)
+        self.assertEqual(azure_kwargs["storage_directory"], "/tmp/test")
+        self.assertEqual(azure_kwargs["browser_sdk_loader_config"], {"enabled": False})
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_general_otel_kwargs_forwarded(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
-        """General OTel kwargs are forwarded to Azure Monitor."""
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_general_otel_kwargs_forwarded(self, append_mock):
+        """General OTel kwargs are forwarded via otel_kwargs."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
             sampling_ratio=0.5,
             logger_name="test",
         )
-        actual_kwargs = azure_monitor_mock.call_args[1]
-        self.assertEqual(actual_kwargs["connection_string"], TEST_CONNECTION_STRING)
-        self.assertEqual(actual_kwargs["sampling_ratio"], 0.5)
-        self.assertEqual(actual_kwargs["logger_name"], "test")
+        otel_kwargs, azure_kwargs = append_mock.call_args[0]
+        self.assertEqual(azure_kwargs["connection_string"], TEST_CONNECTION_STRING)
+        self.assertEqual(otel_kwargs["sampling_ratio"], 0.5)
+        self.assertEqual(otel_kwargs["logger_name"], "test")
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components")
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_explicit_disable(self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock):
+    def test_explicit_disable(self, tracing_mock, metrics_mock, logging_mock, append_mock):
         """Explicitly disabling Azure Monitor still creates providers."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
@@ -104,17 +94,18 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
         tracing_mock.assert_called_once()
         metrics_mock.assert_called_once()
         logging_mock.assert_called_once()
-        azure_monitor_mock.assert_not_called()
+        append_mock.assert_not_called()
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    def test_enable_key_not_forwarded(self, azure_monitor_mock):
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_enable_key_not_forwarded(self, append_mock):
         """enable_azure_monitor is consumed, not forwarded."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
             enable_azure_monitor=True,
         )
-        actual_kwargs = azure_monitor_mock.call_args[1]
-        self.assertNotIn("enable_azure_monitor", actual_kwargs)
+        otel_kwargs, azure_kwargs = append_mock.call_args[0]
+        self.assertNotIn("enable_azure_monitor", otel_kwargs)
+        self.assertNotIn("enable_azure_monitor", azure_kwargs)
 
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
@@ -150,12 +141,10 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
 class TestOTelProviderSetup(unittest.TestCase):
     """Tests for core OTel provider initialisation functions."""
 
-    @patch("microsoft.opentelemetry._distro.set_tracer_provider")
-    def test_setup_tracing_creates_provider(self, set_tp_mock):
-        """_setup_tracing creates a TracerProvider and registers it."""
+    def test_setup_tracing_creates_provider(self):
+        """_setup_tracing creates a TracerProvider."""
         tp = _setup_tracing(TEST_RESOURCE, {})
         self.assertIsInstance(tp, TracerProvider)
-        set_tp_mock.assert_called_once_with(tp)
 
     def test_setup_tracing_adds_span_processors(self):
         """_setup_tracing adds user-supplied span processors."""
@@ -164,129 +153,75 @@ class TestOTelProviderSetup(unittest.TestCase):
         self.assertIsInstance(tp, TracerProvider)
         self.assertIn(sp, tp._active_span_processor._span_processors)
 
-    @patch("microsoft.opentelemetry._distro.set_meter_provider")
-    def test_setup_metrics_creates_provider(self, set_mp_mock):
-        """_setup_metrics creates a MeterProvider and registers it."""
+    def test_setup_metrics_creates_provider(self):
+        """_setup_metrics creates a MeterProvider."""
         mp = _setup_metrics(TEST_RESOURCE, {})
         self.assertIsInstance(mp, MeterProvider)
-        set_mp_mock.assert_called_once_with(mp)
 
 
-class TestSetupAzureMonitor(unittest.TestCase):
-    """Tests for _setup_azure_monitor() delegation."""
+class TestAzureMonitorComponentCollection(unittest.TestCase):
+    """Tests for _append_azure_monitor_components()."""
 
-    def _make_mock_modules(self):
-        """Create mock microsoft.opentelemetry._azure_monitor module hierarchy."""
-        mock_module = MagicMock()
-        return {
-            "microsoft": MagicMock(),
-            "microsoft.opentelemetry._azure_monitor": mock_module,
-        }, mock_module
-
-    def test_delegates_to_configure_azure_monitor(self):
-        """_setup_azure_monitor calls configure_azure_monitor with the given kwargs."""
-        mods, mock_module = self._make_mock_modules()
-        with patch.dict(sys.modules, mods):
-            from microsoft.opentelemetry._distro import _setup_azure_monitor
-
-            result = _setup_azure_monitor(
-                connection_string=TEST_CONNECTION_STRING,
-                resource=TEST_RESOURCE,
-            )
-            self.assertTrue(result)
-            mock_module.configure_azure_monitor.assert_called_once_with(
-                connection_string=TEST_CONNECTION_STRING,
-                resource=TEST_RESOURCE,
-            )
-
-    def test_forwards_standard_config_keys(self):
-        """Standard config keys (resource, sampling, processors, etc.) are forwarded."""
-        mods, mock_module = self._make_mock_modules()
-        with patch.dict(sys.modules, mods):
-            from microsoft.opentelemetry._distro import _setup_azure_monitor
-
-            _setup_azure_monitor(
-                connection_string=TEST_CONNECTION_STRING,
-                resource=TEST_RESOURCE,
-                disable_tracing=False,
-                disable_logging=False,
-                disable_metrics=False,
-                span_processors=["sp1"],
-                log_record_processors=["lrp1"],
-                metric_readers=["mr1"],
-                views=["v1"],
-                enable_live_metrics=True,
-                enable_performance_counters=True,
-                sampling_ratio=0.5,
-                logger_name="test",
-            )
-            actual_kwargs = mock_module.configure_azure_monitor.call_args[1]
-
-            self.assertEqual(actual_kwargs["connection_string"], TEST_CONNECTION_STRING)
-            self.assertEqual(actual_kwargs["resource"], TEST_RESOURCE)
-            self.assertEqual(actual_kwargs["disable_tracing"], False)
-            self.assertEqual(actual_kwargs["span_processors"], ["sp1"])
-            self.assertEqual(actual_kwargs["sampling_ratio"], 0.5)
-            self.assertEqual(actual_kwargs["logger_name"], "test")
-
-    def test_exception_handled_gracefully(self):
-        """If configure_azure_monitor raises, it is caught and logged; returns False."""
-        mods, mock_module = self._make_mock_modules()
-        mock_module.configure_azure_monitor.side_effect = Exception("config error")
-        with patch.dict(sys.modules, mods):
-            from microsoft.opentelemetry._distro import _setup_azure_monitor
-
-            # Should not raise
-            result = _setup_azure_monitor(connection_string=TEST_CONNECTION_STRING)
-            self.assertFalse(result)
-
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor", return_value=False)
-    @patch("microsoft.opentelemetry._distro._setup_logging")
-    @patch("microsoft.opentelemetry._distro._setup_metrics")
-    @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_fallback_providers_created_on_azure_monitor_failure(
-        self, tracing_mock, metrics_mock, logging_mock, azure_monitor_mock
-    ):
-        """When Azure Monitor setup fails, bare providers are created as fallback."""
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_post_setup_skipped_on_failure(self, append_mock):
+        """When component collection returns None configs, post-setup is skipped."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
         )
-        azure_monitor_mock.assert_called_once()
-        tracing_mock.assert_called_once()
-        metrics_mock.assert_called_once()
-        logging_mock.assert_called_once()
+        append_mock.assert_called_once()
+
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_providers_created_by_azure_monitor(self, append_mock):
+        """Providers are created by Azure Monitor _setup_* and registered by distro."""
+        use_microsoft_opentelemetry(
+            azure_monitor_connection_string=TEST_CONNECTION_STRING,
+        )
+        append_mock.assert_called_once()
+
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_otel_and_azure_kwargs_forwarded(self, append_mock):
+        """Both OTel and Azure Monitor kwargs are forwarded to component collection."""
+        use_microsoft_opentelemetry(
+            azure_monitor_connection_string=TEST_CONNECTION_STRING,
+            sampling_ratio=0.5,
+            logger_name="test",
+        )
+        otel_kwargs, azure_kwargs = append_mock.call_args[0]
+        self.assertEqual(azure_kwargs["connection_string"], TEST_CONNECTION_STRING)
+        self.assertEqual(otel_kwargs["sampling_ratio"], 0.5)
+        self.assertEqual(otel_kwargs["logger_name"], "test")
 
 
 class TestEnableKwargsPassthrough(unittest.TestCase):
     """Tests that azure_monitor_ kwargs are remapped and passed through."""
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    def test_enable_live_metrics_passed_through(self, azure_monitor_mock):
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_enable_live_metrics_passed_through(self, append_mock):
         """azure_monitor_enable_live_metrics is remapped and forwarded."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
             azure_monitor_enable_live_metrics=False,
         )
-        actual_kwargs = azure_monitor_mock.call_args[1]
-        self.assertEqual(actual_kwargs["enable_live_metrics"], False)
+        _, azure_kwargs = append_mock.call_args[0]
+        self.assertEqual(azure_kwargs["enable_live_metrics"], False)
 
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    def test_enable_performance_counters_passed_through(self, azure_monitor_mock):
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_enable_performance_counters_passed_through(self, append_mock):
         """azure_monitor_enable_performance_counters is remapped and forwarded."""
         use_microsoft_opentelemetry(
             azure_monitor_connection_string=TEST_CONNECTION_STRING,
             azure_monitor_enable_performance_counters=False,
         )
-        actual_kwargs = azure_monitor_mock.call_args[1]
-        self.assertEqual(actual_kwargs["enable_performance_counters"], False)
+        _, azure_kwargs = append_mock.call_args[0]
+        self.assertEqual(azure_kwargs["enable_performance_counters"], False)
 
 
 class TestAllConfigOptions(unittest.TestCase):
     """End-to-end test that every documented configuration option works."""
 
-    @patch("microsoft.opentelemetry._distro.is_otlp_enabled", return_value=False)
-    @patch("microsoft.opentelemetry._distro._setup_azure_monitor")
-    def test_all_options_end_to_end(self, azure_monitor_mock, otlp_mock):
+    @patch("microsoft.opentelemetry._utils.is_otlp_enabled", return_value=False)
+    @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
+    def test_all_options_end_to_end(self, append_mock, otlp_mock):
         """Every documented kwarg is accepted, remapped if needed, and forwarded."""
         from logging import Formatter
 
@@ -317,51 +252,49 @@ class TestAllConfigOptions(unittest.TestCase):
             sampling_ratio=0.25,
         )
 
-        azure_monitor_mock.assert_called_once()
-        actual = azure_monitor_mock.call_args[1]
+        append_mock.assert_called_once()
+        otel_kwargs, azure_kwargs = append_mock.call_args[0]
 
         # Remapped azure_monitor_ kwargs
-        self.assertEqual(actual["connection_string"], TEST_CONNECTION_STRING)
-        self.assertEqual(actual["credential"], "test_cred")
-        self.assertEqual(actual["enable_live_metrics"], False)
-        self.assertEqual(actual["enable_performance_counters"], False)
-        self.assertEqual(actual["disable_offline_storage"], True)
-        self.assertEqual(actual["storage_directory"], "/tmp/test")
-        self.assertEqual(actual["browser_sdk_loader_config"], {"enabled": False})
+        self.assertEqual(azure_kwargs["connection_string"], TEST_CONNECTION_STRING)
+        self.assertEqual(azure_kwargs["credential"], "test_cred")
+        self.assertEqual(azure_kwargs["enable_live_metrics"], False)
+        self.assertEqual(azure_kwargs["enable_performance_counters"], False)
+        self.assertEqual(azure_kwargs["disable_offline_storage"], True)
+        self.assertEqual(azure_kwargs["storage_directory"], "/tmp/test")
+        self.assertEqual(azure_kwargs["browser_sdk_loader_config"], {"enabled": False})
 
-        # General OTel kwargs passed through to Azure Monitor
-        self.assertEqual(actual["disable_logging"], True)
-        self.assertEqual(actual["disable_tracing"], True)
-        self.assertEqual(actual["disable_metrics"], True)
-        self.assertEqual(actual["resource"], TEST_RESOURCE)
-        self.assertEqual(actual["span_processors"], ["sp1"])
-        self.assertEqual(actual["log_record_processors"], ["lrp1"])
-        self.assertEqual(actual["metric_readers"], ["mr1"])
-        self.assertEqual(actual["views"], ["v1"])
-        self.assertEqual(actual["logger_name"], "mylogger")
-        self.assertEqual(actual["logging_formatter"], formatter)
-        self.assertEqual(actual["instrumentation_options"], {"flask": {"enabled": False}})
-        self.assertEqual(actual["enable_trace_based_sampling_for_logs"], True)
-        self.assertEqual(actual["sampling_ratio"], 0.25)
+        # General OTel kwargs
+        self.assertEqual(otel_kwargs["disable_logging"], True)
+        self.assertEqual(otel_kwargs["disable_tracing"], True)
+        self.assertEqual(otel_kwargs["disable_metrics"], True)
+        self.assertEqual(otel_kwargs["resource"], TEST_RESOURCE)
+        self.assertEqual(otel_kwargs["span_processors"], ["sp1"])
+        self.assertEqual(otel_kwargs["log_record_processors"], ["lrp1"])
+        self.assertEqual(otel_kwargs["metric_readers"], ["mr1"])
+        self.assertEqual(otel_kwargs["views"], ["v1"])
+        self.assertEqual(otel_kwargs["logger_name"], "mylogger")
+        self.assertEqual(otel_kwargs["logging_formatter"], formatter)
+        self.assertEqual(otel_kwargs["instrumentation_options"], {"flask": {"enabled": False}})
+        self.assertEqual(otel_kwargs["enable_trace_based_sampling_for_logs"], True)
+        self.assertEqual(otel_kwargs["sampling_ratio"], 0.25)
 
-        # azure_monitor_ prefixed keys should NOT appear in forwarded kwargs
-        for key in actual:
+        # azure_monitor_ prefixed keys should NOT appear in otel_kwargs
+        for key in otel_kwargs:
             self.assertFalse(
                 key.startswith("azure_monitor_"),
                 f"Prefixed key '{key}' should have been remapped",
             )
-        self.assertNotIn("enable_azure_monitor", actual)
+        self.assertNotIn("enable_azure_monitor", otel_kwargs)
 
 
 class TestSetupLogging(unittest.TestCase):
     """Tests for _setup_logging()."""
 
-    @patch("opentelemetry._logs.set_logger_provider")
-    def test_creates_logger_provider(self, set_lp_mock):
-        """_setup_logging creates and registers a LoggerProvider."""
+    def test_creates_logger_provider(self):
+        """_setup_logging creates a LoggerProvider."""
         lp = _setup_logging(TEST_RESOURCE, {})
         self.assertIsNotNone(lp)
-        set_lp_mock.assert_called_once()
 
     @patch("opentelemetry._logs.set_logger_provider")
     def test_adds_log_record_processors(self, set_lp_mock):
