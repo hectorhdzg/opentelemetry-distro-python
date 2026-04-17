@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 from opentelemetry import baggage, context
 
-from microsoft.agents.a365.observability.core.exporters.span_processor import (
+from microsoft.opentelemetry.a365.core.exporters.span_processor import (
     A365SpanProcessor,
     COMMON_ATTRIBUTES,
     INVOKE_AGENT_ATTRIBUTES,
@@ -100,12 +100,12 @@ class TestA365SpanProcessor(unittest.TestCase):
         span.attributes = {"gen_ai.operation.name": "invoke_agent"}
 
         ctx = context.get_current()
-        ctx = baggage.set_baggage("microsoft.a365.caller.agent.id", "caller-1", ctx)
+        ctx = baggage.set_baggage("microsoft.opentelemetry.a365.caller.agent.id", "caller-1", ctx)
         ctx = baggage.set_baggage("server.address", "example.com", ctx)
 
         processor.on_start(span, parent_context=ctx)
 
-        span.set_attribute.assert_any_call("microsoft.a365.caller.agent.id", "caller-1")
+        span.set_attribute.assert_any_call("microsoft.opentelemetry.a365.caller.agent.id", "caller-1")
         span.set_attribute.assert_any_call("server.address", "example.com")
 
     def test_invoke_agent_attributes_not_propagated_for_other_spans(self):
@@ -116,7 +116,7 @@ class TestA365SpanProcessor(unittest.TestCase):
         span.attributes = {"gen_ai.operation.name": "chat"}
 
         ctx = context.get_current()
-        ctx = baggage.set_baggage("microsoft.a365.caller.agent.id", "caller-1", ctx)
+        ctx = baggage.set_baggage("microsoft.opentelemetry.a365.caller.agent.id", "caller-1", ctx)
         ctx = baggage.set_baggage("microsoft.tenant.id", "my-tenant", ctx)
 
         processor.on_start(span, parent_context=ctx)
@@ -126,7 +126,7 @@ class TestA365SpanProcessor(unittest.TestCase):
 
         # Caller agent should NOT be propagated (invoke-agent only)
         for call in span.set_attribute.call_args_list:
-            self.assertNotEqual(call[0][0], "microsoft.a365.caller.agent.id")
+            self.assertNotEqual(call[0][0], "microsoft.opentelemetry.a365.caller.agent.id")
 
     def test_empty_baggage(self):
         processor = A365SpanProcessor()
@@ -163,7 +163,7 @@ class TestA365SpanProcessor(unittest.TestCase):
         self.assertIn("user.id", COMMON_ATTRIBUTES)
 
     def test_invoke_agent_attributes_list(self):
-        self.assertIn("microsoft.a365.caller.agent.id", INVOKE_AGENT_ATTRIBUTES)
+        self.assertIn("microsoft.opentelemetry.a365.caller.agent.id", INVOKE_AGENT_ATTRIBUTES)
         self.assertIn("server.address", INVOKE_AGENT_ATTRIBUTES)
         self.assertIn("server.port", INVOKE_AGENT_ATTRIBUTES)
 

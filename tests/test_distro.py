@@ -395,7 +395,7 @@ class TestA365Components(unittest.TestCase):
         mock_handlers.span_processors = [mock_sp]
 
         with patch(
-            "microsoft.agents.a365.observability.create_a365_components",
+            "microsoft.opentelemetry.a365.create_a365_components",
             return_value=mock_handlers,
         ):
             use_microsoft_opentelemetry(enable_a365=True, enable_azure_monitor=False)

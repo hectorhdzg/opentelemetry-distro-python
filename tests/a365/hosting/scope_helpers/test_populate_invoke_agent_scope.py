@@ -7,17 +7,17 @@ from unittest.mock import MagicMock
 import pytest
 from microsoft_agents.activity import Activity, ChannelAccount, ConversationAccount
 from microsoft_agents.hosting.core import TurnContext
-from microsoft.agents.a365.observability.core.agent_details import AgentDetails
-from microsoft.agents.a365.observability.core.constants import (
+from microsoft.opentelemetry.a365.core.agent_details import AgentDetails
+from microsoft.opentelemetry.a365.core.constants import (
     CHANNEL_NAME_KEY,
     GEN_AI_CONVERSATION_ID_KEY,
     GEN_AI_INPUT_MESSAGES_KEY,
     USER_ID_KEY,
 )
-from microsoft.agents.a365.observability.core.invoke_agent_details import InvokeAgentScopeDetails
-from microsoft.agents.a365.observability.core.invoke_agent_scope import InvokeAgentScope
-from microsoft.agents.a365.observability.core.request import Request
-from microsoft.agents.a365.observability.hosting.scope_helpers.populate_invoke_agent_scope import (
+from microsoft.opentelemetry.a365.core.invoke_agent_details import InvokeAgentScopeDetails
+from microsoft.opentelemetry.a365.core.invoke_agent_scope import InvokeAgentScope
+from microsoft.opentelemetry.a365.core.request import Request
+from microsoft.opentelemetry.a365.hosting.scope_helpers.populate_invoke_agent_scope import (
     populate,
 )
 from opentelemetry import trace

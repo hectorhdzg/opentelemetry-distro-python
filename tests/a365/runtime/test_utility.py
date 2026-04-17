@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 import jwt
 import pytest
-from microsoft.agents.a365.observability.runtime.utility import Utility
+from microsoft.opentelemetry.a365.runtime.utility import Utility
 
 # pylint: disable=redefined-outer-name
 # Fixtures (Mocks and Helpers)

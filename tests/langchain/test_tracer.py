@@ -7,12 +7,12 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-from microsoft.genai._langchain._tracer import (
+from microsoft.opentelemetry._genai._langchain._tracer import (
     LangChainTracer,
     _update_span,
     get_attributes_from_context,
 )
-from microsoft.genai._langchain._utils import (
+from microsoft.opentelemetry._genai._langchain._utils import (
     EXECUTE_TOOL_OPERATION_NAME,
     INVOKE_AGENT_OPERATION_NAME,
 )
@@ -208,7 +208,7 @@ class TestResolveFrameworkName(TestCase):
 
 
 class TestStartTrace(TestCase):
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_creates_span_for_chain(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, _ = _make_tracer()
@@ -218,7 +218,7 @@ class TestStartTrace(TestCase):
         args = otel_tracer.start_span.call_args
         self.assertEqual(args.kwargs["name"], "RunnableSequence")
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_creates_span_for_tool(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, _ = _make_tracer()
@@ -229,7 +229,7 @@ class TestStartTrace(TestCase):
         self.assertIn(EXECUTE_TOOL_OPERATION_NAME, args.kwargs["name"])
         self.assertIn("get_weather", args.kwargs["name"])
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_creates_wrapper_for_agent(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, mock_span = _make_tracer()
@@ -248,7 +248,7 @@ class TestStartTrace(TestCase):
         self.assertIn(INVOKE_AGENT_OPERATION_NAME, wrapper_name)
         self.assertIn("LangGraph", inner_name)
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_suppressed_instrumentation_skips(self, mock_ctx):
         mock_ctx.get_value.return_value = True
         tracer, otel_tracer, _ = _make_tracer()
@@ -258,7 +258,7 @@ class TestStartTrace(TestCase):
 
 
 class TestEndTrace(TestCase):
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_ends_span(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, mock_span = _make_tracer()
@@ -267,7 +267,7 @@ class TestEndTrace(TestCase):
         tracer._end_trace(run)
         mock_span.end.assert_called()
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_ends_both_spans_for_agent(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, _ = _make_tracer()
@@ -284,7 +284,7 @@ class TestEndTrace(TestCase):
         inner_span.end.assert_called_once()
         wrapper_span.end.assert_called_once()
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_cleans_up_agent_tracking(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, _ = _make_tracer()
@@ -306,7 +306,7 @@ class TestEndTrace(TestCase):
 
 
 class TestErrorHandlers(TestCase):
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_on_llm_error_records_exception(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, mock_span = _make_tracer()
@@ -320,7 +320,7 @@ class TestErrorHandlers(TestCase):
                 pass
         mock_span.record_exception.assert_called_with(error)
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_on_chain_error_records_exception(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, mock_span = _make_tracer()
@@ -334,7 +334,7 @@ class TestErrorHandlers(TestCase):
                 pass
         mock_span.record_exception.assert_called_with(error)
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_on_tool_error_records_exception(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, mock_span = _make_tracer()
@@ -394,7 +394,7 @@ class TestUpdateSpan(TestCase):
 
 
 class TestAggregateIntoParent(TestCase):
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_aggregates_llm_model(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, _ = _make_tracer()
@@ -419,7 +419,7 @@ class TestAggregateIntoParent(TestCase):
         content = tracer._agent_content[agent_run.id]
         self.assertEqual(content["model"], "gpt-4")
 
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_aggregates_tool_output(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, _ = _make_tracer()
@@ -444,7 +444,7 @@ class TestAggregateIntoParent(TestCase):
 
 
 class TestFindAgentAncestor(TestCase):
-    @patch("microsoft.genai._langchain._tracer.context_api")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.context_api")
     def test_finds_direct_parent(self, mock_ctx):
         mock_ctx.get_value.return_value = None
         tracer, otel_tracer, _ = _make_tracer()
@@ -470,13 +470,13 @@ class TestFindAgentAncestor(TestCase):
 
 
 class TestGetAttributesFromContext(TestCase):
-    @patch("microsoft.genai._langchain._tracer.get_value")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.get_value")
     def test_yields_context_attributes(self, mock_get_value):
         mock_get_value.side_effect = lambda key: "test_val" if key == "session.id" else None
         result = dict(get_attributes_from_context())
         self.assertEqual(result.get("session.id"), "test_val")
 
-    @patch("microsoft.genai._langchain._tracer.get_value", return_value=None)
+    @patch("microsoft.opentelemetry._genai._langchain._tracer.get_value", return_value=None)
     def test_yields_nothing_when_empty(self, mock_get_value):
         result = list(get_attributes_from_context())
         self.assertEqual(result, [])

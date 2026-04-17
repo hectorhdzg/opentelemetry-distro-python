@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from opentelemetry.sdk.trace import ReadableSpan
 
-from microsoft.agents.a365.observability.core.exporters.enriching_span_processor import (
+from microsoft.opentelemetry.a365.core.exporters.enriching_span_processor import (
     _EnrichingBatchSpanProcessor,
     get_span_enricher,
     register_span_enricher,

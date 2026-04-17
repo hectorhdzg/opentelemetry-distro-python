@@ -49,7 +49,7 @@ dev = [
 ]
 
 [project.entry-points.opentelemetry_instrumentor]
-langchain = "microsoft.genai._langchain._tracer_instrumentor:LangChainInstrumentor"
+langchain = "microsoft.opentelemetry._genai._langchain._tracer_instrumentor:LangChainInstrumentor"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

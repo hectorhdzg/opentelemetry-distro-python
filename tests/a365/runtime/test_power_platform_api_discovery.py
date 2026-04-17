@@ -4,7 +4,7 @@
 """Unit tests for PowerPlatformApiDiscovery class."""
 
 import pytest
-from microsoft.agents.a365.observability.runtime.power_platform_api_discovery import (
+from microsoft.opentelemetry.a365.runtime.power_platform_api_discovery import (
     PowerPlatformApiDiscovery,
 )
 

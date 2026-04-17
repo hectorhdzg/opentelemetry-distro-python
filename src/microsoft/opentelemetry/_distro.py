@@ -188,12 +188,12 @@ def _append_a365_components(
         return
 
     try:
-        from microsoft.agents.a365.observability import (
+        from microsoft.opentelemetry.a365 import (
             A365Handlers,
             create_a365_components,
         )
     except ImportError:
-        _logger.warning("A365 export requested but microsoft.agents.a365.observability not available.")
+        _logger.warning("A365 export requested but microsoft.opentelemetry.a365 not available.")
         return
 
     try:

@@ -4,7 +4,7 @@
 """Unit tests for OperationError class."""
 
 import pytest
-from microsoft.agents.a365.observability.runtime import OperationError
+from microsoft.opentelemetry.a365.runtime import OperationError
 
 
 class TestOperationError:

@@ -3,7 +3,7 @@
 
 """Unit tests for OperationResult class."""
 
-from microsoft.agents.a365.observability.runtime import OperationError, OperationResult
+from microsoft.opentelemetry.a365.runtime import OperationError, OperationResult
 
 
 class TestOperationResult:

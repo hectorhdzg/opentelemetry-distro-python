@@ -7,7 +7,7 @@ from enum import Enum
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from microsoft.genai._langchain._utils import (
+from microsoft.opentelemetry._genai._langchain._utils import (
     DictWithLock,
     CHAT_OPERATION_NAME,
     EXECUTE_TOOL_OPERATION_NAME,

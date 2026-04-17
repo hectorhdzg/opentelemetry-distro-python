@@ -5,7 +5,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-from microsoft.genai._langchain._tracer_instrumentor import (
+from microsoft.opentelemetry._genai._langchain._tracer_instrumentor import (
     LangChainInstrumentor,
     _BaseCallbackManagerInit,
 )
@@ -28,9 +28,9 @@ class TestLangChainInstrumentor(TestCase):
         deps = inst.instrumentation_dependencies()
         self.assertIn("langchain-core >= 0.2.0", deps)
 
-    @patch("microsoft.genai._langchain._tracer_instrumentor.get_otel_logger")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.trace_api.get_tracer")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.wrap_function_wrapper")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.get_otel_logger")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.trace_api.get_tracer")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.wrap_function_wrapper")
     def test_instrument_creates_tracer(self, mock_wrap, mock_get_tracer, mock_get_logger):
         mock_get_tracer.return_value = MagicMock()
         mock_get_logger.return_value = MagicMock()
@@ -43,9 +43,9 @@ class TestLangChainInstrumentor(TestCase):
         self.assertEqual(wrap_kwargs.kwargs.get("module") or wrap_kwargs[0][0], "langchain_core.callbacks")
         self.assertIsNotNone(inst._tracer)
 
-    @patch("microsoft.genai._langchain._tracer_instrumentor.get_otel_logger")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.trace_api.get_tracer")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.wrap_function_wrapper")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.get_otel_logger")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.trace_api.get_tracer")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.wrap_function_wrapper")
     def test_instrument_passes_agent_config(self, mock_wrap, mock_get_tracer, mock_get_logger):
         mock_get_tracer.return_value = MagicMock()
         mock_get_logger.return_value = MagicMock()
@@ -54,9 +54,9 @@ class TestLangChainInstrumentor(TestCase):
         self.assertEqual(inst._tracer._agent_config["agent_name"], "TestBot")
         self.assertEqual(inst._tracer._agent_config["agent_id"], "a-1")
 
-    @patch("microsoft.genai._langchain._tracer_instrumentor.get_otel_logger")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.trace_api.get_tracer")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.wrap_function_wrapper")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.get_otel_logger")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.trace_api.get_tracer")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.wrap_function_wrapper")
     def test_uninstrument_restores_init(self, mock_wrap, mock_get_tracer, mock_get_logger):
         mock_get_tracer.return_value = MagicMock()
         mock_get_logger.return_value = MagicMock()
@@ -67,16 +67,16 @@ class TestLangChainInstrumentor(TestCase):
         self.assertIsNone(inst._tracer)
         self.assertIsNone(inst._original_cb_init)
 
-    @patch("microsoft.genai._langchain._tracer_instrumentor.get_otel_logger")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.trace_api.get_tracer")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.wrap_function_wrapper")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.get_otel_logger")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.trace_api.get_tracer")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.wrap_function_wrapper")
     def test_get_span_returns_none_when_not_instrumented(self, mock_wrap, mock_get_tracer, mock_get_logger):
         inst = LangChainInstrumentor()
         self.assertIsNone(inst.get_span(uuid4()))
 
-    @patch("microsoft.genai._langchain._tracer_instrumentor.get_otel_logger")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.trace_api.get_tracer")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.wrap_function_wrapper")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.get_otel_logger")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.trace_api.get_tracer")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.wrap_function_wrapper")
     def test_get_span_delegates_to_tracer(self, mock_wrap, mock_get_tracer, mock_get_logger):
         mock_get_tracer.return_value = MagicMock()
         mock_get_logger.return_value = MagicMock()
@@ -88,9 +88,9 @@ class TestLangChainInstrumentor(TestCase):
             result = inst.get_span(run_id)
         self.assertEqual(result, mock_span)
 
-    @patch("microsoft.genai._langchain._tracer_instrumentor.get_otel_logger")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.trace_api.get_tracer")
-    @patch("microsoft.genai._langchain._tracer_instrumentor.wrap_function_wrapper")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.get_otel_logger")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.trace_api.get_tracer")
+    @patch("microsoft.opentelemetry._genai._langchain._tracer_instrumentor.wrap_function_wrapper")
     def test_get_ancestors_returns_empty_when_not_instrumented(self, mock_wrap, mock_get_tracer, mock_get_logger):
         inst = LangChainInstrumentor()
         self.assertEqual(inst.get_ancestors(uuid4()), [])

@@ -5,9 +5,9 @@ from unittest.mock import MagicMock
 
 from microsoft_agents.activity import Activity, ChannelAccount, ConversationAccount
 from microsoft_agents.hosting.core import TurnContext
-from microsoft.agents.a365.observability.core.constants import USER_ID_KEY
-from microsoft.agents.a365.observability.core.middleware.baggage_builder import BaggageBuilder
-from microsoft.agents.a365.observability.hosting.scope_helpers.populate_baggage import populate
+from microsoft.opentelemetry.a365.core.constants import USER_ID_KEY
+from microsoft.opentelemetry.a365.core.middleware.baggage_builder import BaggageBuilder
+from microsoft.opentelemetry.a365.hosting.scope_helpers.populate_baggage import populate
 
 
 def test_populate():

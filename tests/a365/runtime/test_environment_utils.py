@@ -4,7 +4,7 @@
 """Unit tests for environment_utils module."""
 
 import pytest
-from microsoft.agents.a365.observability.runtime.environment_utils import (
+from microsoft.opentelemetry.a365.runtime.environment_utils import (
     PROD_OBSERVABILITY_SCOPE,
     get_observability_authentication_scope,
     is_development_environment,

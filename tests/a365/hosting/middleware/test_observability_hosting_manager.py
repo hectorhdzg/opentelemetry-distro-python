@@ -4,14 +4,14 @@
 from unittest.mock import MagicMock
 
 import pytest
-from microsoft.agents.a365.observability.hosting.middleware.baggage_middleware import (
+from microsoft.opentelemetry.a365.hosting.middleware.baggage_middleware import (
     BaggageMiddleware,
 )
-from microsoft.agents.a365.observability.hosting.middleware.observability_hosting_manager import (
+from microsoft.opentelemetry.a365.hosting.middleware.observability_hosting_manager import (
     ObservabilityHostingManager,
     ObservabilityHostingOptions,
 )
-from microsoft.agents.a365.observability.hosting.middleware.output_logging_middleware import (
+from microsoft.opentelemetry.a365.hosting.middleware.output_logging_middleware import (
     OutputLoggingMiddleware,
 )
 

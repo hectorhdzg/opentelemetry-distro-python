@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 from opentelemetry.sdk.trace.export import SpanExportResult
 from opentelemetry.trace import SpanKind, StatusCode
 
-from microsoft.agents.a365.observability.core.exporters.agent365_exporter import (
+from microsoft.opentelemetry.a365.core.exporters.agent365_exporter import (
     _Agent365Exporter,
 )
 
@@ -69,7 +69,7 @@ class TestAgent365ExporterInit(unittest.TestCase):
 
 
 class TestAgent365ExporterExport(unittest.TestCase):
-    @patch("microsoft.agents.a365.observability.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
     @patch.dict(os.environ, {}, clear=True)
     def test_export_success(self, mock_post):
         mock_post.return_value = True
@@ -80,7 +80,7 @@ class TestAgent365ExporterExport(unittest.TestCase):
         mock_post.assert_called_once()
         exporter.shutdown()
 
-    @patch("microsoft.agents.a365.observability.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
     @patch.dict(os.environ, {}, clear=True)
     def test_export_failure(self, mock_post):
         mock_post.return_value = False
@@ -107,7 +107,7 @@ class TestAgent365ExporterExport(unittest.TestCase):
         result = exporter.export([span])
         self.assertEqual(result, SpanExportResult.FAILURE)
 
-    @patch("microsoft.agents.a365.observability.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
     @patch.dict(os.environ, {}, clear=True)
     def test_export_partitions_by_identity(self, mock_post):
         mock_post.return_value = True
@@ -119,7 +119,7 @@ class TestAgent365ExporterExport(unittest.TestCase):
         self.assertEqual(mock_post.call_count, 2)
         exporter.shutdown()
 
-    @patch("microsoft.agents.a365.observability.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
     @patch.dict(os.environ, {}, clear=True)
     def test_token_resolver_called_with_agent_tenant(self, mock_post):
         mock_post.return_value = True
@@ -130,7 +130,7 @@ class TestAgent365ExporterExport(unittest.TestCase):
         resolver.assert_called_once_with("my_agent", "my_tenant")
         exporter.shutdown()
 
-    @patch("microsoft.agents.a365.observability.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
     @patch.dict(os.environ, {}, clear=True)
     def test_token_resolution_failure_continues(self, mock_post):
         resolver = MagicMock(side_effect=Exception("auth error"))
@@ -141,7 +141,7 @@ class TestAgent365ExporterExport(unittest.TestCase):
         mock_post.assert_not_called()
         exporter.shutdown()
 
-    @patch("microsoft.agents.a365.observability.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
     @patch.dict(os.environ, {"A365_OBSERVABILITY_DOMAIN_OVERRIDE": "https://custom.host.com"})
     def test_domain_override(self, mock_post):
         mock_post.return_value = True
@@ -197,7 +197,7 @@ class TestAgent365ExporterShutdown(unittest.TestCase):
 
 
 class TestAgent365ExporterS2S(unittest.TestCase):
-    @patch("microsoft.agents.a365.observability.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
     @patch.dict(os.environ, {}, clear=True)
     def test_s2s_endpoint_url(self, mock_post):
         mock_post.return_value = True

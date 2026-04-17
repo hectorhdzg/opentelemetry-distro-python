@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 from opentelemetry.trace import SpanKind, StatusCode
 
-from microsoft.agents.a365.observability.core.exporters.utils import (
+from microsoft.opentelemetry.a365.core.exporters.utils import (
     MAX_SPAN_SIZE_BYTES,
     _as_str,
     build_export_url,

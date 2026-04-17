@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 from microsoft_agents.activity import Activity, ChannelAccount, ConversationAccount
-from microsoft.agents.a365.observability.core.constants import (
+from microsoft.opentelemetry.a365.core.constants import (
     CHANNEL_LINK_KEY,
     CHANNEL_NAME_KEY,
     GEN_AI_AGENT_AUID_KEY,
@@ -17,7 +17,7 @@ from microsoft.agents.a365.observability.core.constants import (
     USER_ID_KEY,
     USER_NAME_KEY,
 )
-from microsoft.agents.a365.observability.hosting.scope_helpers.utils import (
+from microsoft.opentelemetry.a365.hosting.scope_helpers.utils import (
     get_caller_pairs,
     get_channel_pairs,
     get_conversation_pairs,

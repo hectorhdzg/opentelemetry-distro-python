@@ -6,7 +6,7 @@
 import warnings
 
 import pytest
-from microsoft.agents.a365.observability.runtime.version_utils import build_version
+from microsoft.opentelemetry.a365.runtime.version_utils import build_version
 
 
 # Tests for build_version

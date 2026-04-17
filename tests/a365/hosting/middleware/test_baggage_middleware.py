@@ -12,11 +12,11 @@ from microsoft_agents.activity import (
     ConversationAccount,
 )
 from microsoft_agents.hosting.core import TurnContext
-from microsoft.agents.a365.observability.core.constants import (
+from microsoft.opentelemetry.a365.core.constants import (
     TENANT_ID_KEY,
     USER_ID_KEY,
 )
-from microsoft.agents.a365.observability.hosting.middleware.baggage_middleware import (
+from microsoft.opentelemetry.a365.hosting.middleware.baggage_middleware import (
     BaggageMiddleware,
 )
 from opentelemetry import baggage
