@@ -14,6 +14,7 @@ import jwt
 import pytest
 from microsoft.opentelemetry.a365.runtime.utility import Utility
 
+
 # pylint: disable=redefined-outer-name
 # Fixtures (Mocks and Helpers)
 @pytest.fixture

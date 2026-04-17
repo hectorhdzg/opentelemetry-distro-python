@@ -50,6 +50,15 @@ use_microsoft_opentelemetry(
 | `logging_formatter` | `Formatter` | `None` | Formatter for collected logs. |
 | `instrumentation_options` | `dict` | `None` | Per-library instrumentation enable/disable options. |
 | `enable_trace_based_sampling_for_logs` | `bool` | `False` | Enable trace-based sampling for logs. |
+| `enable_a365` | `bool` | `False` | Enable Agent365 telemetry export. |
+| `a365_token_resolver` | `Callable` | `None` | `(agent_id, tenant_id) -> token` callable for A365 auth. If omitted, defaults to FIC/DefaultAzureCredential. |
+| `a365_tenant_id` | `str` | `None` | Tenant ID stamped on spans. Falls back to `A365_TENANT_ID` env var. |
+| `a365_agent_id` | `str` | `None` | Agent ID stamped on spans. Falls back to `A365_AGENT_ID` env var. |
+| `a365_cluster_category` | `str` | `"prod"` | Cluster category for endpoint discovery. Falls back to `A365_CLUSTER_CATEGORY` env var. |
+| `a365_use_s2s_endpoint` | `bool` | `False` | Use the S2S endpoint. Falls back to `A365_USE_S2S_ENDPOINT` env var. |
+| `a365_suppress_invoke_agent_input` | `bool` | `False` | Strip input messages from InvokeAgent spans. Falls back to `A365_SUPPRESS_INVOKE_AGENT_INPUT` env var. |
+
+A365 also reads additional environment variables defined in `a365/constants.py` (e.g. `ENABLE_A365_OBSERVABILITY_EXPORTER`, `A365_OBSERVABILITY_DOMAIN_OVERRIDE`, FIC auth vars). Kwargs take precedence when provided.
 
 ### Sampling Configuration
 
@@ -78,6 +87,29 @@ Sampling is configured via standard OpenTelemetry environment variables:
 ```bash
 export OTEL_TRACES_SAMPLER=trace_id_ratio
 export OTEL_TRACES_SAMPLER_ARG=0.1
+```
+
+### Agent365 (A365) Configuration
+
+When `enable_a365=True`, the distro adds A365 span processors to the tracing pipeline. A365 exporter behavior is configured via environment variables:
+
+| Environment variable | Default | Description |
+|---|---|---|
+| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `false` | Enable the A365 HTTP exporter. When `false`, spans are still processed but not exported to A365. |
+| `A365_TENANT_ID` | `None` | Tenant ID stamped on every span. |
+| `A365_AGENT_ID` | `None` | Agent ID stamped on every span. |
+| `A365_CLUSTER_CATEGORY` | `prod` | Cluster category for endpoint discovery (`prod`, `gov`, `dod`, `mooncake`). |
+| `A365_USE_S2S_ENDPOINT` | `false` | Use the S2S endpoint instead of the standard endpoint. |
+| `A365_SUPPRESS_INVOKE_AGENT_INPUT` | `false` | Strip input messages from InvokeAgent spans before export. |
+| `ENABLE_OBSERVABILITY` | `false` | Master switch for A365 scope telemetry. Must be `true` for scope classes to emit spans. |
+
+**Example:**
+
+```bash
+export ENABLE_OBSERVABILITY=true
+export ENABLE_A365_OBSERVABILITY_EXPORTER=true
+export A365_TENANT_ID=my-tenant-id
+export A365_AGENT_ID=my-agent-id
 ```
 
 ## Planned Scope

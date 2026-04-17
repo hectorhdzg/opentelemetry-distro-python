@@ -14,6 +14,7 @@ from microsoft.opentelemetry.a365.hosting.token_cache_helpers import (
     AgenticTokenStruct,
 )
 
+
 # pylint: disable=redefined-outer-name, broad-exception-caught
 @pytest.fixture
 def mock_authorization():

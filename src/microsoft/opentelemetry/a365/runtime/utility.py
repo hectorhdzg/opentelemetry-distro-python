@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 import jwt
 
+
 # pylint: disable=broad-exception-caught
 class Utility:
     """

@@ -31,6 +31,7 @@ from microsoft.opentelemetry.a365.core.constants import ERROR_TYPE_KEY
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
+
 # pylint: disable=broad-exception-caught
 def extract_context_from_headers(headers: dict[str, str]) -> context.Context:
     """Extract an OpenTelemetry Context from W3C trace HTTP headers.

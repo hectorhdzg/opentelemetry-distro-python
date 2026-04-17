@@ -67,3 +67,8 @@ _AZURE_MONITOR_KWARG_MAP = {
 
 ENABLE_A365_ARG = "enable_a365"
 A365_TOKEN_RESOLVER_ARG = "a365_token_resolver"
+A365_TENANT_ID_ARG = "a365_tenant_id"
+A365_AGENT_ID_ARG = "a365_agent_id"
+A365_CLUSTER_CATEGORY_ARG = "a365_cluster_category"
+A365_USE_S2S_ENDPOINT_ARG = "a365_use_s2s_endpoint"
+A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG = "a365_suppress_invoke_agent_input"

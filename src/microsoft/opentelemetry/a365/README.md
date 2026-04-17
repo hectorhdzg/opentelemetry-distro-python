@@ -8,7 +8,7 @@ Agent365 observability SDK for OpenTelemetry-based tracing of AI agent operation
 
 | File | Description |
 |------|-------------|
-| `__init__.py` | Package entry point. Exports `A365Handlers`, `create_a365_components`, and `is_a365_enabled`. |
+| `__init__.py` | Package entry point. Internal — the distro builds A365 components directly. |
 | `constants.py` | Distro-level constants: span operation names, OTel semantic convention keys, feature switches, GenAI conventions, tool/user/agent attribute keys, and environment variable names. |
 
 ### `core/`
@@ -17,10 +17,9 @@ Core tracing primitives — scopes, configuration, data models, and internal uti
 
 | File | Description |
 |------|-------------|
-| `__init__.py` | Public API surface. Re-exports 40+ classes/functions from submodules (scopes, models, config, exporters). |
+| `__init__.py` | Public API surface. Re-exports scope classes, data models, exporters, and utilities. |
 | `agent_details.py` | `AgentDetails` dataclass — metadata about an AI agent (ID, name, description, blueprint/platform IDs, tenant, version). |
 | `channel.py` | `Channel` dataclass — channel context (name, link) for agent execution. |
-| `config.py` | `TelemetryManager` singleton — thread-safe telemetry configuration. Sets up tracers, span processors, and exporters (Agent365 or Spectra). Provides `configure()`, `get_tracer()`, etc. |
 | `constants.py` | Core-level constants for span operations, OTel conventions, feature switches, and error types. |
 | `execute_tool_scope.py` | `ExecuteToolScope` — tracing scope for AI tool executions. Records tool name, arguments, call ID, type, and endpoint. |
 | `inference_call_details.py` | `InferenceCallDetails` dataclass — LLM call metadata (model, provider, token counts, finish reasons, endpoint). |
@@ -62,10 +61,8 @@ Data models for messages, agents, callers, and responses.
 
 | File | Description |
 |------|-------------|
-| `agent_type.py` | `AgentType` enum — EntraEmbodied, EntraNonEmbodied, MicrosoftCopilot, DeclarativeAgent, Foundry. |
 | `caller_details.py` | `CallerDetails` dataclass — groups caller identity for agent-to-agent (A2A) scenarios (human user and calling agent). |
 | `messages.py` | OTel gen-ai message types: enums (`MessageRole`, `FinishReason`, `Modality`), message parts (`TextPart`, `BlobPart`, `FilePart`, `UriPart`), `ChatMessage`, `OutputMessage`, and wrapper types. |
-| `operation_source.py` | `OperationSource` enum — SDK, Gateway, MCPServer. |
 | `response.py` | `Response` dataclass — output messages (strings, `OutputMessages`, or tool result dicts). |
 | `service_endpoint.py` | `ServiceEndpoint` dataclass — hostname and optional port. |
 | `user_details.py` | `UserDetails` dataclass — human user info (ID, email, name, client IP). |
@@ -75,13 +72,6 @@ Data models for messages, agents, callers, and responses.
 | File | Description |
 |------|-------------|
 | `output_scope.py` | `OutputScope` — tracing scope for output messages. Records output with agent/user details and conversation ID. |
-
-### `core/trace_processor/`
-
-| File | Description |
-|------|-------------|
-| `span_processor.py` | `SpanProcessor` — copies OpenTelemetry baggage entries to span attributes with special handling for invoke_agent spans. |
-| `util.py` | Attribute lists for baggage-to-span propagation: `COMMON_ATTRIBUTES` and `INVOKE_AGENT_ATTRIBUTES`. |
 
 ### `hosting/`
 
@@ -125,3 +115,110 @@ Runtime utilities for environment discovery, error handling, and token operation
 | `power_platform_api_discovery.py` | `PowerPlatformApiDiscovery` — discovers Power Platform API endpoints per cluster category. `ClusterCategory` type for valid cluster strings. |
 | `utility.py` | `Utility` — static methods for JWT token decoding (diagnostics only), extracting app IDs and agent blueprint IDs from tokens. |
 | `version_utils.py` | Deprecated versioning utilities. `build_version()` deprecated in favor of setuptools-git-versioning. |
+
+---
+
+## Public API Reference
+
+All public symbols are organized by package entry point. A365 is initialized through
+the distro: `use_microsoft_opentelemetry(enable_a365=True)`.
+
+### `microsoft.opentelemetry.a365`
+
+Internal to the distro — no public exports. The distro builds A365 span processors
+directly in `_append_a365_components()`. Application code should not import from
+this package directly.
+
+### `microsoft.opentelemetry.a365.core`
+
+Scope classes and data models for creating structured agent telemetry. All symbols
+below are available via `from microsoft.opentelemetry.a365.core import ...`.
+
+#### Scope Classes
+
+| Symbol | Kind | Description |
+|--------|------|-------------|
+| `OpenTelemetryScope` | class | Base class for all tracing scopes. Manages span lifecycle, attributes, context propagation. Supports `with` statement. |
+| `InvokeAgentScope` | class | Tracing scope for agent invocations. Records request/response, caller details, channel, endpoint. Use `InvokeAgentScope.start(...)`. |
+| `InferenceScope` | class | Tracing scope for LLM inference calls. Records model, provider, tokens, finish reasons, messages. Use `InferenceScope.start(...)`. |
+| `ExecuteToolScope` | class | Tracing scope for tool executions. Records tool name, arguments, call ID, type, endpoint. Use `ExecuteToolScope.start(...)`. |
+| `OutputScope` | class | Tracing scope for output messages. Records output with agent/user details. |
+
+#### Middleware
+
+| Symbol | Kind | Description |
+|--------|------|-------------|
+| `BaggageBuilder` | class | Fluent API for setting per-request baggage (tenant, agent, user, channel, session, conversation). Call `.build()` to get a context manager. |
+
+#### Data Classes
+
+| Symbol | Kind | Description |
+|--------|------|-------------|
+| `AgentDetails` | dataclass | Agent identity: `agent_id`, `agent_name`, `agent_description`, `tenant_id`, `agent_blueprint_id`, `agent_platform_id`, `provider_name`, `agent_version`, etc. |
+| `CallerDetails` | dataclass | Composite caller for A2A scenarios: `user_details` (`UserDetails`) + `caller_agent_details` (`AgentDetails`). |
+| `UserDetails` | dataclass | Human user identity: `user_id`, `user_email`, `user_name`, `user_client_ip`. |
+| `Request` | dataclass | Request details: `content` (`InputMessagesParam`), `session_id`, `channel`, `conversation_id`. |
+| `Response` | dataclass | Response output: `messages` (strings, `OutputMessages`, or tool result dict). |
+| `InvokeAgentScopeDetails` | dataclass | Scope config for agent invocation: `endpoint` (`ServiceEndpoint`). |
+| `InferenceCallDetails` | dataclass | LLM call metadata: `operationName`, `model`, `providerName`, `inputTokens`, `outputTokens`, `finishReasons`, `endpoint`. |
+| `ToolCallDetails` | dataclass | Tool call info: `tool_name`, `arguments`, `tool_call_id`, `description`, `tool_type`, `endpoint`. |
+| `SpanDetails` | dataclass | Span config: `span_kind`, `parent_context`, `start_time`, `end_time`, `span_links`. |
+| `Channel` | dataclass | Channel context: `name`, `link`. |
+| `ServiceEndpoint` | dataclass | Service endpoint: `hostname`, `port`. |
+
+#### Enums
+
+| Symbol | Kind | Values |
+|--------|------|--------|
+| `InferenceOperationType` | enum | `CHAT`, `TEXT_COMPLETION`, `GENERATE_CONTENT` |
+| `ToolType` | enum | `FUNCTION`, `EXTENSION`, `DATASTORE` |
+
+#### OTel Gen-AI Message Types
+
+| Symbol | Kind | Description |
+|--------|------|-------------|
+| `MessageRole` | enum | `SYSTEM`, `USER`, `ASSISTANT`, `TOOL` |
+| `FinishReason` | enum | `STOP`, `LENGTH`, `CONTENT_FILTER`, `TOOL_CALL`, `ERROR` |
+| `Modality` | enum | `IMAGE`, `VIDEO`, `AUDIO` |
+| `TextPart` | dataclass | Text content part. |
+| `ToolCallRequestPart` | dataclass | Tool call request (function name + arguments). |
+| `ToolCallResponsePart` | dataclass | Tool call response (call ID + result). |
+| `ReasoningPart` | dataclass | Model reasoning/thought content. |
+| `BlobPart` | dataclass | Binary blob with MIME type and modality. |
+| `FilePart` | dataclass | File reference with URI and MIME type. |
+| `UriPart` | dataclass | URI reference with MIME type. |
+| `ServerToolCallPart` | dataclass | Server-side tool call. |
+| `ServerToolCallResponsePart` | dataclass | Server-side tool call response. |
+| `GenericPart` | dataclass | Generic extensibility part. |
+| `MessagePart` | type alias | Union of all part types. |
+| `ChatMessage` | dataclass | Input message: `role`, `content` (list of parts). |
+| `OutputMessage` | dataclass | Output message: extends `ChatMessage` with `finish_reason`. |
+| `InputMessages` | dataclass | Versioned wrapper for input messages. |
+| `OutputMessages` | dataclass | Versioned wrapper for output messages. |
+| `InputMessagesParam` | type alias | Accepted types for input messages (`str`, `InputMessages`). |
+| `OutputMessagesParam` | type alias | Accepted types for output messages (`str`, `OutputMessages`). |
+
+### `microsoft.opentelemetry.a365.hosting`
+
+Hosting-layer middleware for Bot Framework integration.
+
+| Symbol | Kind | Description |
+|--------|------|-------------|
+| `BaggageMiddleware` | class | Bot Framework middleware that populates baggage from `TurnContext`. |
+| `OutputLoggingMiddleware` | class | Creates `OutputScope` spans for outgoing messages. |
+| `ObservabilityHostingManager` | class | Singleton that registers observability middleware on a `MiddlewareSet`. |
+| `ObservabilityHostingOptions` | dataclass | Options for enabling/disabling hosting middleware. |
+| `A365_PARENT_TRACEPARENT_KEY` | constant | Key for storing parent traceparent in `TurnContext` turn state. |
+
+### `microsoft.opentelemetry.a365.runtime`
+
+Runtime utilities for environment discovery and error handling.
+
+| Symbol | Kind | Description |
+|--------|------|-------------|
+| `get_observability_authentication_scope` | function | Returns the auth scope for observability, with env var override support. |
+| `PowerPlatformApiDiscovery` | class | Discovers Power Platform API endpoints per cluster category. |
+| `ClusterCategory` | type alias | Valid cluster category strings (prod, gov, dod, mooncake, etc.). |
+| `Utility` | class | JWT token decoding for diagnostics (no signature verification). |
+| `OperationError` | class | Wraps an exception with a message property. |
+| `OperationResult` | class | Represents operation success/failure with optional error list. |

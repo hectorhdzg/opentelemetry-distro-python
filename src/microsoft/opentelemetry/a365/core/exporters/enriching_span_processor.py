@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 _span_enricher: Optional[Callable[[ReadableSpan], ReadableSpan]] = None
 _enricher_lock = threading.Lock()
 
+
 # pylint: disable=global-statement, broad-exception-caught
 def register_span_enricher(enricher: Callable[[ReadableSpan], ReadableSpan]) -> None:
     """Register the span enricher for the active platform instrumentor.

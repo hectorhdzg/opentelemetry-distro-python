@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from microsoft.opentelemetry.a365.core.agent_details import AgentDetails
 
 
-
 @dataclass
 class CallerDetails:
     """Composite caller details for agent-to-agent (A2A) scenarios.

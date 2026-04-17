@@ -100,6 +100,7 @@ INVOKE_AGENT_ATTRIBUTES = [
     SERVER_PORT_KEY,
 ]
 
+
 # pylint: disable=broad-exception-caught, too-many-branches, useless-parent-delegation
 # pylint: disable=global-statement
 class A365SpanProcessor(BaseSpanProcessor):

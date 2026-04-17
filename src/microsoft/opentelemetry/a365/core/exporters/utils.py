@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 # Maximum allowed span size in bytes (250KB)
 MAX_SPAN_SIZE_BYTES = 250 * 1024
 
+
 # pylint: disable=broad-exception-caught, too-many-return-statements
 def hex_trace_id(value: int) -> str:
     """Convert a 128-bit trace ID to a 32-character hex string."""

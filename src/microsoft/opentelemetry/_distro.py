@@ -3,6 +3,7 @@
 # Licensed under the MIT License. See License.txt in the project root for
 # license information.
 # --------------------------------------------------------------------------
+import os
 from functools import cached_property
 from logging import getLogger, Formatter
 from typing import Any, Dict, List, Optional
@@ -29,6 +30,11 @@ from microsoft.opentelemetry._constants import (
     DISABLE_TRACING_ARG,
     ENABLE_A365_ARG,
     A365_TOKEN_RESOLVER_ARG,
+    A365_TENANT_ID_ARG,
+    A365_AGENT_ID_ARG,
+    A365_CLUSTER_CATEGORY_ARG,
+    A365_USE_S2S_ENDPOINT_ARG,
+    A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG,
     ENABLE_AZURE_MONITOR_ARG,
     INSTRUMENTATION_OPTIONS_ARG,
     LOGGER_NAME_ARG,
@@ -101,22 +107,51 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
         Optional callable ``(agent_id: str, tenant_id: str) -> str | None``
         used to authenticate with the Agent365 endpoint.  When omitted,
         ``DefaultAzureCredential`` is used.
+    :keyword str a365_tenant_id:
+        Tenant ID stamped on every span. Also read from ``A365_TENANT_ID`` env var.
+    :keyword str a365_agent_id:
+        Agent ID stamped on every span. Also read from ``A365_AGENT_ID`` env var.
+    :keyword str a365_cluster_category:
+        Cluster category for endpoint discovery. Also read from ``A365_CLUSTER_CATEGORY``
+        env var. Defaults to ``"prod"``.
+    :keyword bool a365_use_s2s_endpoint:
+        Use the S2S endpoint. Also read from ``A365_USE_S2S_ENDPOINT`` env var.
+        Defaults to False.
+    :keyword bool a365_suppress_invoke_agent_input:
+        Strip input messages from InvokeAgent spans before export. Also read from
+        ``A365_SUPPRESS_INVOKE_AGENT_INPUT`` env var. Defaults to False.
     :rtype: None
     """
 
     enable_azure_monitor = kwargs.pop(ENABLE_AZURE_MONITOR_ARG, True)
-    enable_a365 = kwargs.pop(ENABLE_A365_ARG, False)
+    enable_a365: bool = bool(kwargs.pop(ENABLE_A365_ARG, False))
     a365_token_resolver = kwargs.pop(A365_TOKEN_RESOLVER_ARG, None)
+    a365_tenant_id = kwargs.pop(A365_TENANT_ID_ARG, None)
+    a365_agent_id = kwargs.pop(A365_AGENT_ID_ARG, None)
+    a365_cluster_category = kwargs.pop(A365_CLUSTER_CATEGORY_ARG, None)
+    a365_use_s2s_endpoint = kwargs.pop(A365_USE_S2S_ENDPOINT_ARG, None)
+    a365_suppress_invoke_agent_input = kwargs.pop(A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG, None)
 
     # Separate Azure Monitor kwargs from generic OTel kwargs
     otel_kwargs: Dict[str, Any] = {k: v for k, v in kwargs.items() if k not in _AZURE_MONITOR_KWARG_MAP}
-    azure_monitor_kwargs: Dict[str, Any] = {_AZURE_MONITOR_KWARG_MAP[k]: v for k, v in kwargs.items() if k in _AZURE_MONITOR_KWARG_MAP} # pylint: disable=line-too-long
+    azure_monitor_kwargs: Dict[str, Any] = {
+        _AZURE_MONITOR_KWARG_MAP[k]: v for k, v in kwargs.items() if k in _AZURE_MONITOR_KWARG_MAP
+    }  # pylint: disable=line-too-long
 
     # ---- OTLP exporters (append to user-supplied processors/readers) ----
     _append_otlp_components(otel_kwargs)
 
     # ---- A365 exporters (append span processors — traces only) ----
-    _append_a365_components(enable_a365, otel_kwargs, token_resolver=a365_token_resolver)  # type: ignore[arg-type]
+    _append_a365_components(
+        enable_a365,
+        otel_kwargs,
+        token_resolver=a365_token_resolver,
+        tenant_id=a365_tenant_id,
+        agent_id=a365_agent_id,
+        cluster_category=a365_cluster_category,
+        use_s2s_endpoint=a365_use_s2s_endpoint,
+        suppress_invoke_agent_input=a365_suppress_invoke_agent_input,
+    )
 
     # ---- Build and register providers ----
     tracer_provider: Optional[TracerProvider] = None
@@ -164,21 +199,31 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
         _logger.info("Azure Monitor exporter explicitly disabled.")
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    """Read a boolean from an environment variable."""
+    val = os.environ.get(name, "").strip().lower()
+    if not val:
+        return default
+    return val in ("true", "1", "yes", "on")
+
+
 def _append_a365_components(
     enable_a365: bool,
     otel_kwargs: Dict[str, Any],
-    token_resolver: Optional[object] = None,
+    token_resolver: Any = None,
+    tenant_id: Any = None,
+    agent_id: Any = None,
+    cluster_category: Any = None,
+    use_s2s_endpoint: Any = None,
+    suppress_invoke_agent_input: Any = None,
 ) -> None:
-    """Append Agent365 span processors to ``otel_kwargs[SPAN_PROCESSORS_ARG]``.
+    """Build and append Agent365 span processors to ``otel_kwargs``.
 
     A365 only produces span processors (traces).  They are added to the
     same list that the distro uses when creating the TracerProvider, so
     the distro registers a single provider for all exporters.
 
-    All A365 configuration is read from environment variables.
-
-    :param token_resolver: Optional callable ``(agent_id, tenant_id) -> str | None``.
-        When provided, it is used instead of ``DefaultAzureCredential``.
+    Kwargs take precedence over environment variables.
     """
     if not enable_a365:
         return
@@ -187,25 +232,69 @@ def _append_a365_components(
     if disable_tracing:
         return
 
+    from microsoft.opentelemetry.a365.constants import (
+        A365_TENANT_ID_ENV,
+        A365_AGENT_ID_ENV,
+        A365_CLUSTER_CATEGORY_ENV,
+        A365_USE_S2S_ENDPOINT_ENV,
+        A365_SUPPRESS_INVOKE_AGENT_INPUT_ENV,
+        ENABLE_A365_OBSERVABILITY_EXPORTER,
+    )
+    from microsoft.opentelemetry.a365.core.exporters.agent365_exporter import _Agent365Exporter
+    from microsoft.opentelemetry.a365.core.exporters.enriching_span_processor import (
+        _EnrichingBatchSpanProcessor,
+    )
+    from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
+    from microsoft.opentelemetry.a365.core.exporters.utils import (
+        _create_default_token_resolver,
+        is_agent365_exporter_enabled,
+    )
+
     try:
-        from microsoft.opentelemetry.a365 import (
-            A365Handlers,
-            create_a365_components,
+        # Resolve configuration: kwargs > env vars > defaults
+        resolved_token_resolver = token_resolver or _create_default_token_resolver()
+        resolved_tenant_id = tenant_id or os.environ.get(A365_TENANT_ID_ENV)
+        resolved_agent_id = agent_id or os.environ.get(A365_AGENT_ID_ENV)
+        resolved_cluster_category = cluster_category or os.environ.get(A365_CLUSTER_CATEGORY_ENV, "prod")
+        resolved_use_s2s = use_s2s_endpoint if use_s2s_endpoint is not None else _env_bool(A365_USE_S2S_ENDPOINT_ENV)
+        resolved_suppress_input = (
+            suppress_invoke_agent_input
+            if suppress_invoke_agent_input is not None
+            else _env_bool(A365_SUPPRESS_INVOKE_AGENT_INPUT_ENV)
         )
-    except ImportError:
-        _logger.warning("A365 export requested but microsoft.opentelemetry.a365 not available.")
-        return
 
-    try:
-        handlers: A365Handlers = create_a365_components(token_resolver=token_resolver)  # type: ignore[arg-type]
-    except Exception: # pylint: disable=broad-exception-caught
-        _logger.exception("Failed to create A365 components.")
-        return
+        # Build the exporter (A365 HTTP or skip if not enabled)
+        if not is_agent365_exporter_enabled() or resolved_token_resolver is None:
+            _logger.warning(
+                "%s not set or token_resolver not provided. A365 exporter will not be active.",
+                ENABLE_A365_OBSERVABILITY_EXPORTER,
+            )
+            return
 
-    if handlers.span_processors:
+        exporter = _Agent365Exporter(
+            token_resolver=resolved_token_resolver,
+            cluster_category=resolved_cluster_category,
+            use_s2s_endpoint=resolved_use_s2s,
+        )
+
+        # Enriching batch processor wrapping the exporter
+        batch_processor = _EnrichingBatchSpanProcessor(
+            exporter,
+            suppress_invoke_agent_input=resolved_suppress_input,
+        )
+
+        # Identity stamping + baggage-to-span attribute propagation
+        baggage_processor = A365SpanProcessor(
+            tenant_id=resolved_tenant_id,
+            agent_id=resolved_agent_id,
+        )
+
         otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
-        for sp in handlers.span_processors:
-            otel_kwargs[SPAN_PROCESSORS_ARG].append(sp)
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(batch_processor)
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
+
+    except Exception:  # pylint: disable=broad-exception-caught
+        _logger.exception("Failed to create A365 components.")
 
 
 # ---------------------------------------------------------------------------

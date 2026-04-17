@@ -135,7 +135,7 @@ class ExecuteToolScope(OpenTelemetryScope):
                 validate_and_normalize_ip(user_details.user_client_ip),
             )
 
-    def record_response(self, result: dict[str, object] | str) -> None: # pylint: disable=arguments-renamed
+    def record_response(self, result: dict[str, object] | str) -> None:  # pylint: disable=arguments-renamed
         """Record the tool call result for telemetry tracking.
 
         Per OTEL spec, the result is expected to be an object. If a string

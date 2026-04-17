@@ -4,6 +4,8 @@
 
 ### Features Added
 
+- Integrate A365 observability into distro with `enable_a365` kwarg, add samples and migration instructions
+  ([#40](https://github.com/microsoft/opentelemetry-distro-python/pull/40))
 - Add langchain instrumentation 
   ([#26](https://github.com/microsoft/opentelemetry-distro-python/pull/26))
 - Add Microsoft Opentelemetry Distro Configuration
