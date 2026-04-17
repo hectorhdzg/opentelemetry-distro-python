@@ -17,7 +17,7 @@ Core tracing primitives — scopes, configuration, data models, and internal uti
 
 | File | Description |
 |------|-------------|
-| `__init__.py` | Public API surface. Re-exports scope classes, data models, exporters, and utilities. |
+| `__init__.py` | Public API surface. Re-exports scope classes, data models, enums, and related core types. |
 | `agent_details.py` | `AgentDetails` dataclass — metadata about an AI agent (ID, name, description, blueprint/platform IDs, tenant, version). |
 | `channel.py` | `Channel` dataclass — channel context (name, link) for agent execution. |
 | `constants.py` | Core-level constants for span operations, OTel conventions, feature switches, and error types. |

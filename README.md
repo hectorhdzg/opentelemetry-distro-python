@@ -95,7 +95,7 @@ When `enable_a365=True`, the distro adds A365 span processors to the tracing pip
 
 | Environment variable | Default | Description |
 |---|---|---|
-| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `false` | Enable the A365 HTTP exporter. When `false`, spans are still processed but not exported to A365. |
+| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `false` | Enable the A365 HTTP exporter. When `false`, no A365 span processors are added and no A365-specific processing occurs. |
 | `A365_TENANT_ID` | `None` | Tenant ID stamped on every span. |
 | `A365_AGENT_ID` | `None` | Agent ID stamped on every span. |
 | `A365_CLUSTER_CATEGORY` | `prod` | Cluster category for endpoint discovery (`prod`, `gov`, `dod`, `mooncake`). |

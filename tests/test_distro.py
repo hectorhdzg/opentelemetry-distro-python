@@ -12,7 +12,7 @@ Validates that the microsoft distro wrapper:
 """
 
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, call
 
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -20,6 +20,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 
 from microsoft.opentelemetry._distro import (
     use_microsoft_opentelemetry,
+    _append_a365_components,
     _setup_tracing,
     _setup_metrics,
     _setup_logging,
@@ -348,6 +349,120 @@ class TestSetupLogging(unittest.TestCase):
                 if h not in original_handlers:
                     test_logger.removeHandler(h)
 
+
+class TestA365KwargsConfiguration(unittest.TestCase):
+    """Tests for A365 kwargs precedence and forwarding in _append_a365_components."""
+
+    @patch("microsoft.opentelemetry._distro._append_a365_components")
+    def test_a365_kwargs_forwarded(self, a365_mock):
+        """A365 kwargs are parsed and forwarded to _append_a365_components."""
+        token_fn = lambda aid, tid: "token"
+        use_microsoft_opentelemetry(
+            enable_a365=True,
+            a365_token_resolver=token_fn,
+            a365_tenant_id="test-tenant",
+            a365_agent_id="test-agent",
+            a365_cluster_category="gov",
+            a365_use_s2s_endpoint=True,
+            a365_suppress_invoke_agent_input=True,
+            enable_azure_monitor=False,
+        )
+        a365_mock.assert_called_once()
+        _, kwargs = a365_mock.call_args
+        self.assertEqual(kwargs["token_resolver"], token_fn)
+        self.assertEqual(kwargs["tenant_id"], "test-tenant")
+        self.assertEqual(kwargs["agent_id"], "test-agent")
+        self.assertEqual(kwargs["cluster_category"], "gov")
+        self.assertEqual(kwargs["use_s2s_endpoint"], True)
+        self.assertEqual(kwargs["suppress_invoke_agent_input"], True)
+
+    @patch("microsoft.opentelemetry._distro._append_a365_components")
+    def test_a365_not_called_when_disabled(self, a365_mock):
+        """_append_a365_components is called with enable_a365=False (skips internally)."""
+        use_microsoft_opentelemetry(enable_azure_monitor=False)
+        a365_mock.assert_called_once()
+        args = a365_mock.call_args[0]
+        self.assertFalse(args[0])  # enable_a365=False
+
+    @patch("microsoft.opentelemetry._distro._append_a365_components")
+    def test_a365_kwargs_not_leaked_to_otel(self, a365_mock):
+        """A365 kwargs are consumed and not forwarded to OTel kwargs."""
+        use_microsoft_opentelemetry(
+            enable_a365=True,
+            a365_tenant_id="test-tenant",
+            enable_azure_monitor=False,
+        )
+        otel_kwargs = a365_mock.call_args[0][1]
+        self.assertNotIn("a365_tenant_id", otel_kwargs)
+        self.assertNotIn("enable_a365", otel_kwargs)
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils._create_default_token_resolver")
+    def test_kwargs_override_env_vars(self, default_resolver_mock, enabled_mock):
+        """Kwargs take precedence over environment variables."""
+        custom_resolver = lambda aid, tid: "custom-token"
+        default_resolver_mock.return_value = lambda aid, tid: "default-token"
+
+        env = {
+            "A365_TENANT_ID": "env-tenant",
+            "A365_AGENT_ID": "env-agent",
+            "A365_CLUSTER_CATEGORY": "mooncake",
+            "A365_USE_S2S_ENDPOINT": "true",
+            "A365_SUPPRESS_INVOKE_AGENT_INPUT": "true",
+        }
+        with patch.dict("os.environ", env, clear=False):
+            otel_kwargs = {"span_processors": []}
+            _append_a365_components(
+                True,
+                otel_kwargs,
+                token_resolver=custom_resolver,
+                tenant_id="kwarg-tenant",
+                agent_id="kwarg-agent",
+                cluster_category="gov",
+                use_s2s_endpoint=False,
+                suppress_invoke_agent_input=False,
+            )
+
+        # Two processors should have been added
+        processors = otel_kwargs["span_processors"]
+        self.assertEqual(len(processors), 2)
+
+        # The baggage processor (last one) should have kwarg values, not env values
+        baggage_proc = processors[1]
+        self.assertEqual(baggage_proc._tenant_id, "kwarg-tenant")
+        self.assertEqual(baggage_proc._agent_id, "kwarg-agent")
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils._create_default_token_resolver")
+    def test_env_vars_used_as_fallback(self, default_resolver_mock, enabled_mock):
+        """Environment variables are used when kwargs are not provided."""
+        default_resolver_mock.return_value = lambda aid, tid: "token"
+
+        env = {
+            "A365_TENANT_ID": "env-tenant",
+            "A365_AGENT_ID": "env-agent",
+            "A365_CLUSTER_CATEGORY": "gov",
+        }
+        with patch.dict("os.environ", env, clear=False):
+            otel_kwargs = {"span_processors": []}
+            _append_a365_components(True, otel_kwargs)
+
+        processors = otel_kwargs["span_processors"]
+        self.assertEqual(len(processors), 2)
+
+        baggage_proc = processors[1]
+        self.assertEqual(baggage_proc._tenant_id, "env-tenant")
+        self.assertEqual(baggage_proc._agent_id, "env-agent")
+
+    def test_a365_skipped_when_disabled(self):
+        """No processors added when enable_a365=False."""
+        otel_kwargs = {"span_processors": []}
+        _append_a365_components(False, otel_kwargs)
+        self.assertEqual(otel_kwargs["span_processors"], [])
+
+
+if __name__ == "__main__":
+    unittest.main()
 
 class TestA365Components(unittest.TestCase):
     """Tests for A365 enable_a365 flag and _append_a365_components."""
