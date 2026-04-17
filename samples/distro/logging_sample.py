@@ -6,6 +6,8 @@ from logging import getLogger, DEBUG
 
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 
+# Connection string can also be passed directly:
+# azure_monitor_connection_string="InstrumentationKey=..."
 use_microsoft_opentelemetry(
     azure_monitor_connection_string=os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", ""),
     logger_name="my_app",

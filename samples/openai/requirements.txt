@@ -1,0 +1,3 @@
+microsoft-opentelemetry
+openai>=1.0.0
+openai-agents>=0.3.3

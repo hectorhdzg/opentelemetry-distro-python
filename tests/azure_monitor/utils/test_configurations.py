@@ -111,6 +111,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
                 "previewlib1": {"enabled": False},
                 "previewlib2": {"enabled": False},
             },
@@ -146,6 +148,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -195,6 +199,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -280,6 +286,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": False},
                 "langchain": {"enabled": False},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
 
@@ -316,6 +324,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": False},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
 
@@ -462,6 +472,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -490,6 +502,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -529,6 +543,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -568,6 +584,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -608,6 +626,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -647,6 +667,8 @@ class TestConfigurations(TestCase):
                 "urllib": {"enabled": True},
                 "urllib3": {"enabled": True},
                 "langchain": {"enabled": True},
+                "openai": {"enabled": True},
+                "openai_agents": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
