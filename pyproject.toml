@@ -24,6 +24,8 @@ dependencies = [
     "opentelemetry-instrumentation-urllib==0.61b0",
     "opentelemetry-instrumentation-urllib3==0.61b0",
     "opentelemetry-instrumentation-logging==0.61b0",
+    "opentelemetry-instrumentation-openai-agents-v2==0.1.0",
+    "opentelemetry-instrumentation-openai-v2==2.3b0",
     "opentelemetry-resource-detector-azure<1.0.0,>=0.1.5",
     "langchain-core>=0.2.0",
     "wrapt>=1.0",

@@ -6,6 +6,8 @@ import uvicorn
 from logging import getLogger, INFO
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 
+# Connection string can also be passed directly:
+# azure_monitor_connection_string="InstrumentationKey=..."
 use_microsoft_opentelemetry(
     azure_monitor_connection_string=os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", ""),
     logger_name=__name__,

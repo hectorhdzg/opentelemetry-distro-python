@@ -104,25 +104,25 @@ All GenAI instrumentations in this package (both direct dependencies and interna
 
 ### GenAI Instrumentations
 
-- Add GenAI instrumentations:
-  - OpenAI v2 instrumentation from `opentelemetry-instrumentation-openai-v2` (contrib) — **direct dependency**
-  - OpenAI Agents SDK v2 instrumentation from `opentelemetry-instrumentation-openai-agents-v2` (contrib) — **direct dependency**
-  - LangChain instrumentation — **internal implementation in this repo** (see below)
+- ~~Add GenAI instrumentations:~~
+  - ~~OpenAI v2 instrumentation from `opentelemetry-instrumentation-openai-v2` (contrib) — **direct dependency**~~
+  - ~~OpenAI Agents SDK v2 instrumentation from `opentelemetry-instrumentation-openai-agents-v2` (contrib) — **direct dependency**~~
+  - ~~LangChain instrumentation — **internal implementation in this repo** (see below)~~
 - ~~Do NOT include Traceloop instrumentations (these use the `opentelemetry` namespace but are not official OpenTelemetry contrib packages)~~
 - ~~Do NOT include Arize instrumentations as direct dependencies~~
 - ~~Standard Python instrumentations (Flask, Django, FastAPI, requests, urllib, etc.) are provided by the in-repo Azure Monitor code — do NOT reimplement them in a separate layer~~
-- Decide whether GenAI instrumentations are hard dependencies or optional extras
-- Make instrumentation enablement explicit and debuggable
+- ~~Treat the OpenAI and OpenAI Agents GenAI instrumentations as direct dependencies rather than optional extras~~
+- ~~Make instrumentation enablement explicit and debuggable~~
 
-### Internal LangChain Instrumentation
+### ~~Internal LangChain Instrumentation~~
 
-Upstream OpenTelemetry contrib does not yet publish a LangChain instrumentation to PyPI. Rather than wait, we will build an internal LangChain instrumentation in this repository as a hybrid of three sources:
+~~Upstream OpenTelemetry contrib does not yet publish a LangChain instrumentation to PyPI. Rather than wait, we will build an internal LangChain instrumentation in this repository as a hybrid of three sources:~~
 
-1. **A365 LangChain instrumentation** — existing internal instrumentation used in A365 agent observability scenarios
-2. **OpenTelemetry contrib LangChain instrumentation** — the unreleased/in-progress instrumentation from the OpenTelemetry Python contrib repository
-3. **Azure LangChain SDK observability** — the observability hooks and tracing surface from the Azure LangChain SDK
+1. ~~**A365 LangChain instrumentation** — existing internal instrumentation used in A365 agent observability scenarios~~
+2. ~~**OpenTelemetry contrib LangChain instrumentation** — the unreleased/in-progress instrumentation from the OpenTelemetry Python contrib repository~~
+3. ~~**Azure LangChain SDK observability** — the observability hooks and tracing surface from the Azure LangChain SDK~~
 
-Design guidelines for the internal instrumentation:
+~~Design guidelines for the internal instrumentation:~~
 
 - ~~Conform to the GenAI Semantic Conventions Reference defined above~~
 - ~~Structure the code as a standard OpenTelemetry instrumentor (implement `BaseInstrumentor`) so it can be swapped out cleanly~~
