@@ -150,6 +150,7 @@ The A365 observability runtime will be **migrated as code into this repository**
 ### Migration and Convergence Plan
 
 - Migrate A365 observability runtime code under a clearly defined internal module boundary (e.g., `_a365/`)
+- **TODO: Investigate Spectra Collector sidecar export path.** The old standalone `config.py` supported a `SpectraExporterOptions` code path that created a standard OTLP exporter (gRPC or HTTP) to a Kubernetes sidecar on localhost (`localhost:4317`/`localhost:4318`). This was dropped during distro integration — need to determine if Spectra sidecar export is actively used, and if so, add it as a distro option (e.g., `a365_exporter_options` kwarg or a dedicated `enable_spectra` flag). The `SpectraExporterOptions` config class still exists but is currently dead code. Re-adding this path would also require restoring the `opentelemetry-exporter-otlp-proto-grpc` dependency.
 - The A365 LangChain instrumentation is partially consumed in Phase 5 as one of the sources for the internal LangChain instrumentation — coordinate with the A365 team to avoid divergence
 - Audit migrated A365 instrumentations and determine which can be contributed to upstream OpenTelemetry contrib — for those with existing upstream equivalents, plan a migration path and deprecation timeline; for those with no upstream equivalent (e.g., Microsoft Agent Framework), keep as Microsoft-specific extensions and evaluate contributing them
 - Validate that existing A365 telemetry pipelines continue to work under the new distro setup with the in-repo code
