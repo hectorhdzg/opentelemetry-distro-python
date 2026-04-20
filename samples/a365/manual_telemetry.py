@@ -22,7 +22,7 @@ Environment variables:
 import time
 
 from microsoft.opentelemetry import use_microsoft_opentelemetry
-from microsoft.opentelemetry.a365.core import (
+from microsoft_agents_a365.observability.core import (
     AgentDetails,
     BaggageBuilder,
     CallerDetails,

@@ -30,8 +30,7 @@ dependencies = [
     "langchain-core>=0.2.0",
     "wrapt>=1.0",
     "opentelemetry-util-genai>=0.3b0",
-    "microsoft-agents-activity>=0.9.0",
-    "microsoft-agents-hosting-core>=0.9.0",
+    "microsoft-agents-a365-observability-core>=0.3.0.dev4",
     "aiohttp>=3.8.0"
 ]
 
