@@ -207,18 +207,27 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return val in ("true", "1", "yes", "on")
 
 
+_TENANT_ID_ATTR = "microsoft.tenant.id"
+_AGENT_ID_ATTR = "gen_ai.agent.id"
+
+
 class _A365IdentityProcessor:
-    """Simple span processor that stamps tenant and agent identity on every span."""
+    """Span processor that stamps tenant and agent identity as defaults.
+
+    Only sets attributes that are not already present on the span,
+    so instrumentation or baggage propagation can override these values.
+    """
 
     def __init__(self, tenant_id: Optional[str] = None, agent_id: Optional[str] = None):
         self._tenant_id = tenant_id
         self._agent_id = agent_id
 
     def on_start(self, span, parent_context=None):  # type: ignore[no-untyped-def]
-        if self._tenant_id:
-            span.set_attribute("microsoft.tenant.id", self._tenant_id)
-        if self._agent_id:
-            span.set_attribute("gen_ai.agent.id", self._agent_id)
+        existing = getattr(span, "attributes", None) or {}
+        if self._tenant_id and _TENANT_ID_ATTR not in existing:
+            span.set_attribute(_TENANT_ID_ATTR, self._tenant_id)
+        if self._agent_id and _AGENT_ID_ATTR not in existing:
+            span.set_attribute(_AGENT_ID_ATTR, self._agent_id)
 
     def on_end(self, span):  # type: ignore[no-untyped-def]
         pass
@@ -257,8 +266,6 @@ def _append_a365_components(
 
     from microsoft_agents_a365.observability.core.constants import (
         ENABLE_A365_OBSERVABILITY_EXPORTER,
-        TENANT_ID_KEY,
-        GEN_AI_AGENT_ID_KEY,
     )
     from microsoft_agents_a365.observability.core.exporters.agent365_exporter import _Agent365Exporter
     from microsoft_agents_a365.observability.core.exporters.enriching_span_processor import (
@@ -301,14 +308,14 @@ def _append_a365_components(
             suppress_invoke_agent_input=resolved_suppress_input,
         )
 
-        # Identity stamping + baggage-to-span attribute propagation
+        # Baggage-to-span attribute propagation
         baggage_processor = SpanProcessor()
 
         otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
         otel_kwargs[SPAN_PROCESSORS_ARG].append(batch_processor)
-        otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
 
-        # Stamp tenant/agent identity on every span via a simple processor
+        # Identity stamping runs first (as a default), baggage processor
+        # runs after and can override with per-request values.
         if resolved_tenant_id or resolved_agent_id:
             otel_kwargs[SPAN_PROCESSORS_ARG].append(
                 _A365IdentityProcessor(
@@ -316,6 +323,7 @@ def _append_a365_components(
                     agent_id=resolved_agent_id,
                 )
             )
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
 
     except Exception:  # pylint: disable=broad-exception-caught
         _logger.exception("Failed to create A365 components.")

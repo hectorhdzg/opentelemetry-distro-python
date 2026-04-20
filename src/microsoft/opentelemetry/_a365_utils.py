@@ -46,6 +46,94 @@ _A365_AGENT_APP_INSTANCE_ID_ENV = "A365_AGENT_APP_INSTANCE_ID"
 _A365_AGENTIC_USER_ID_ENV = "A365_AGENTIC_USER_ID"
 
 
+def _execute_fic_flow(
+    client_id: str,
+    client_secret: str,
+    cfg_tenant: str,
+    instance_id: str,
+    user_id: str,
+    agent_id: str,
+    _cache: dict,
+    _lock: threading.Lock,
+) -> Optional[str]:
+    """Execute the 3-step MSAL FIC token exchange.
+
+    Separated from the resolver closure to keep the return-statement
+    count manageable.
+
+    :param client_id: Service principal client ID.
+    :param client_secret: Service principal client secret.
+    :param cfg_tenant: AAD tenant ID.
+    :param instance_id: Agent application instance ID.
+    :param user_id: Agentic user ID for the FIC grant.
+    :param agent_id: Agent ID (used for cache key and logging).
+    :param _cache: Shared token cache dict.
+    :param _lock: Lock protecting the cache.
+    :returns: Bearer token string or ``None`` on failure.
+    :rtype: Optional[str]
+    """
+    import msal  # pylint: disable=import-outside-toplevel
+
+    authority = f"https://login.microsoftonline.com/{cfg_tenant}"
+    cache_key = f"{cfg_tenant}:{agent_id}"
+
+    try:
+        # Step 1: Agent application token via fmi_path
+        app = msal.ConfidentialClientApplication(
+            client_id=client_id,
+            client_credential=client_secret,
+            authority=authority,
+        )
+        result = app.acquire_token_for_client(
+            scopes=["api://AzureAdTokenExchange/.default"],
+            fmi_path=instance_id,
+        )
+        if "access_token" not in result:
+            logger.warning("FIC step 1 (app token) failed: %s", result.get("error_description", result))
+            return None
+        agent_token = result["access_token"]
+
+        # Step 2: Instance token (client_assertion = agent_token)
+        instance_app = msal.ConfidentialClientApplication(
+            client_id=instance_id,
+            client_credential={"client_assertion": agent_token},
+            authority=authority,
+        )
+        result = instance_app.acquire_token_for_client(
+            scopes=["api://AzureAdTokenExchange/.default"],
+        )
+        if "access_token" not in result:
+            logger.warning("FIC step 2 (instance token) failed: %s", result.get("error_description", result))
+            return None
+        instance_token = result["access_token"]
+
+        # Step 3: User FIC token for A365 observability scope
+        result = instance_app.acquire_token_for_client(
+            scopes=[_A365_DEFAULT_SCOPE],
+            data={
+                "user_id": user_id,
+                "user_federated_identity_credential": instance_token,
+                "grant_type": "user_fic",
+            },
+        )
+        if "access_token" not in result:
+            logger.warning("FIC step 3 (user FIC token) failed: %s", result.get("error_description", result))
+            return None
+
+        access_token = result["access_token"]
+        expires_in = result.get("expires_in", 3600)
+
+        with _lock:
+            _cache[cache_key] = (access_token, time.time() + expires_in)
+
+        logger.debug("FIC token acquired for agent %s, tenant %s", agent_id, cfg_tenant)
+        return access_token  # type: ignore[no-any-return]
+
+    except Exception:  # pylint: disable=broad-exception-caught
+        logger.warning("FIC token flow failed.", exc_info=True)
+        return None
+
+
 def _create_fic_token_resolver() -> Callable[[str, str], Optional[str]]:
     """Create a token resolver using the FIC (Federated Identity Credential) flow.
 
@@ -87,13 +175,18 @@ def _create_fic_token_resolver() -> Callable[[str, str], Optional[str]]:
     ``A365_AGENTIC_USER_ID``
         Agentic user ID for the user FIC grant in step 3.
     """
-    import msal
-
     _cache: dict[str, tuple[str, float]] = {}  # key -> (token, expires_at)
     _lock = threading.Lock()
 
     def _resolve(agent_id: str, tenant_id: str) -> Optional[str]:
-        cache_key = f"{tenant_id}:{agent_id}"
+        client_id = os.environ.get(_A365_SERVICE_CLIENT_ID_ENV, "")
+        client_secret = os.environ.get(_A365_SERVICE_CLIENT_SECRET_ENV, "")
+        cfg_tenant = os.environ.get(_A365_SERVICE_TENANT_ID_ENV, tenant_id)
+        instance_id = os.environ.get(_A365_AGENT_APP_INSTANCE_ID_ENV, "")
+        user_id = os.environ.get(_A365_AGENTIC_USER_ID_ENV, "")
+
+        # Build cache key from effective tenant (after env override)
+        cache_key = f"{cfg_tenant}:{agent_id}"
 
         with _lock:
             cached = _cache.get(cache_key)
@@ -101,12 +194,6 @@ def _create_fic_token_resolver() -> Callable[[str, str], Optional[str]]:
                 token, expires_at = cached
                 if time.time() < expires_at - 60:  # 60 s buffer
                     return token
-
-        client_id = os.environ.get(_A365_SERVICE_CLIENT_ID_ENV, "")
-        client_secret = os.environ.get(_A365_SERVICE_CLIENT_SECRET_ENV, "")
-        cfg_tenant = os.environ.get(_A365_SERVICE_TENANT_ID_ENV, tenant_id)
-        instance_id = os.environ.get(_A365_AGENT_APP_INSTANCE_ID_ENV, "")
-        user_id = os.environ.get(_A365_AGENTIC_USER_ID_ENV, "")
 
         if not all([client_id, client_secret, instance_id, user_id]):
             logger.debug(
@@ -118,63 +205,7 @@ def _create_fic_token_resolver() -> Callable[[str, str], Optional[str]]:
             )
             return None
 
-        authority = f"https://login.microsoftonline.com/{cfg_tenant}"
-
-        try:
-            # Step 1: Agent application token via fmi_path
-            app = msal.ConfidentialClientApplication(
-                client_id=client_id,
-                client_credential=client_secret,
-                authority=authority,
-            )
-            result = app.acquire_token_for_client(
-                scopes=["api://AzureAdTokenExchange/.default"],
-                fmi_path=instance_id,
-            )
-            if "access_token" not in result:
-                logger.warning("FIC step 1 (app token) failed: %s", result.get("error_description", result))
-                return None
-            agent_token = result["access_token"]
-
-            # Step 2: Instance token (client_assertion = agent_token)
-            instance_app = msal.ConfidentialClientApplication(
-                client_id=instance_id,
-                client_credential={"client_assertion": agent_token},
-                authority=authority,
-            )
-            result = instance_app.acquire_token_for_client(
-                scopes=["api://AzureAdTokenExchange/.default"],
-            )
-            if "access_token" not in result:
-                logger.warning("FIC step 2 (instance token) failed: %s", result.get("error_description", result))
-                return None
-            instance_token = result["access_token"]
-
-            # Step 3: User FIC token for A365 observability scope
-            result = instance_app.acquire_token_for_client(
-                scopes=[_A365_DEFAULT_SCOPE],
-                data={
-                    "user_id": user_id,
-                    "user_federated_identity_credential": instance_token,
-                    "grant_type": "user_fic",
-                },
-            )
-            if "access_token" not in result:
-                logger.warning("FIC step 3 (user FIC token) failed: %s", result.get("error_description", result))
-                return None
-
-            access_token = result["access_token"]
-            expires_in = result.get("expires_in", 3600)
-
-            with _lock:
-                _cache[cache_key] = (access_token, time.time() + expires_in)
-
-            logger.debug("FIC token acquired for agent %s, tenant %s", agent_id, tenant_id)
-            return access_token  # type: ignore[no-any-return]
-
-        except Exception:
-            logger.warning("FIC token flow failed.", exc_info=True)
-            return None
+        return _execute_fic_flow(client_id, client_secret, cfg_tenant, instance_id, user_id, agent_id, _cache, _lock)
 
     return _resolve
 
@@ -221,7 +252,7 @@ def _create_dac_token_resolver() -> Callable[[str, str], Optional[str]]:
         try:
             token = _credential.get_token(_A365_DEFAULT_SCOPE)
             return token.token
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             logger.warning("Failed to acquire A365 token via DefaultAzureCredential.", exc_info=True)
             return None
 

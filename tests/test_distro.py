@@ -429,12 +429,12 @@ class TestA365KwargsConfiguration(unittest.TestCase):
                 suppress_invoke_agent_input=False,
             )
 
-        # Three processors: batch + baggage + identity
+        # Three processors: batch + identity + baggage
         processors = otel_kwargs["span_processors"]
         self.assertEqual(len(processors), 3)
 
-        # The identity processor (last one) should have kwarg values, not env values
-        identity_proc = processors[2]
+        # The identity processor (index 1) should have kwarg values, not env values
+        identity_proc = processors[1]
         self.assertEqual(identity_proc._tenant_id, "kwarg-tenant")
         self.assertEqual(identity_proc._agent_id, "kwarg-agent")
 
@@ -453,11 +453,11 @@ class TestA365KwargsConfiguration(unittest.TestCase):
             otel_kwargs = {"span_processors": []}
             _append_a365_components(True, otel_kwargs)
 
-        # Three processors: batch + baggage + identity
+        # Three processors: batch + identity + baggage
         processors = otel_kwargs["span_processors"]
         self.assertEqual(len(processors), 3)
 
-        identity_proc = processors[2]
+        identity_proc = processors[1]
         self.assertEqual(identity_proc._tenant_id, "env-tenant")
         self.assertEqual(identity_proc._agent_id, "env-agent")
 

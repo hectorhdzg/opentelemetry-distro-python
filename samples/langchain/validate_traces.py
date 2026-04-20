@@ -33,7 +33,7 @@ class MemoryExporter(SpanExporter):
         pass
 
 
-def main(): # pylint: disable=too-many-statements
+def main():  # pylint: disable=too-many-statements
     # Enable content capture for validation (must be set before instrumentation)
     os.environ["OTEL_SEMCONV_STABILITY_OPT_IN"] = "gen_ai_latest_experimental"
     os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] = "SPAN_ONLY"
@@ -67,10 +67,16 @@ def main(): # pylint: disable=too-many-statements
     from langchain_core.output_parsers import StrOutputParser
 
     llm2 = FakeListLLM(responses=["42 is the answer."])
-    chain = ChatPromptTemplate.from_messages([
-        ("system", "You are helpful."),
-        ("human", "{q}"),
-    ]) | llm2 | StrOutputParser()
+    chain = (
+        ChatPromptTemplate.from_messages(
+            [
+                ("system", "You are helpful."),
+                ("human", "{q}"),
+            ]
+        )
+        | llm2
+        | StrOutputParser()
+    )
     chain.invoke({"q": "What is 6*7?"})
 
     # ── Sample 3: Tool invocation ───────────────────────────────────────
@@ -110,12 +116,9 @@ def main(): # pylint: disable=too-many-statements
         check("gen_ai.operation.name present", "gen_ai.operation.name" in attrs)
         check("gen_ai.operation.name == 'chat'", attrs.get("gen_ai.operation.name") == "chat")
         check("gen_ai.provider.name present", "gen_ai.provider.name" in attrs)
-        check("SpanKind is CLIENT", span.kind == SpanKind.CLIENT,
-              f"actual: {span.kind.name}")
-        check("Span name is not 'chat None'", "None" not in span.name,
-              f"actual: '{span.name}'")
-        check("gen_ai.response.finish_reasons present",
-              "gen_ai.response.finish_reasons" in attrs)
+        check("SpanKind is CLIENT", span.kind == SpanKind.CLIENT, f"actual: {span.kind.name}")
+        check("Span name is not 'chat None'", "None" not in span.name, f"actual: '{span.name}'")
+        check("gen_ai.response.finish_reasons present", "gen_ai.response.finish_reasons" in attrs)
 
     # ── Tool span checks ───────────────────────────────────────────────
     print(f"\n{'='*60}")
@@ -126,22 +129,19 @@ def main(): # pylint: disable=too-many-statements
         attrs = span.attributes
         print(f"\n  Span: {span.name}")
         check("gen_ai.operation.name present", "gen_ai.operation.name" in attrs)
-        check("gen_ai.operation.name == 'execute_tool'",
-              attrs.get("gen_ai.operation.name") == "execute_tool")
+        check("gen_ai.operation.name == 'execute_tool'", attrs.get("gen_ai.operation.name") == "execute_tool")
         check("gen_ai.tool.name present", "gen_ai.tool.name" in attrs)
-        check("gen_ai.tool.type == 'function'",
-              attrs.get("gen_ai.tool.type") == "function",
-              f"actual: {attrs.get('gen_ai.tool.type')}")
+        check(
+            "gen_ai.tool.type == 'function'",
+            attrs.get("gen_ai.tool.type") == "function",
+            f"actual: {attrs.get('gen_ai.tool.type')}",
+        )
         check("gen_ai.tool.description present", "gen_ai.tool.description" in attrs)
-        check("SpanKind is INTERNAL", span.kind == SpanKind.INTERNAL,
-              f"actual: {span.kind.name}")
-        check("Span name format 'execute_tool <name>'",
-              span.name.startswith("execute_tool "))
+        check("SpanKind is INTERNAL", span.kind == SpanKind.INTERNAL, f"actual: {span.kind.name}")
+        check("Span name format 'execute_tool <name>'", span.name.startswith("execute_tool "))
         # Content capture enabled — args/results should be present
-        check("gen_ai.tool.call.arguments present (content on)",
-              "gen_ai.tool.call.arguments" in attrs)
-        check("gen_ai.tool.call.result present (content on)",
-              "gen_ai.tool.call.result" in attrs)
+        check("gen_ai.tool.call.arguments present (content on)", "gen_ai.tool.call.arguments" in attrs)
+        check("gen_ai.tool.call.result present (content on)", "gen_ai.tool.call.result" in attrs)
 
     # ── All-span attribute dump ─────────────────────────────────────────
     print(f"\n{'='*60}")
