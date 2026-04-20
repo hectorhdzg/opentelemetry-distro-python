@@ -5,7 +5,7 @@ import datetime
 import json
 from enum import Enum
 from unittest import TestCase
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from microsoft.opentelemetry._genai._langchain._utils import (
     DictWithLock,
@@ -20,10 +20,12 @@ from microsoft.opentelemetry._genai._langchain._utils import (
     GEN_AI_OUTPUT_MESSAGES_KEY,
     GEN_AI_PROVIDER_NAME_KEY,
     GEN_AI_REQUEST_MODEL_KEY,
+    GEN_AI_RESPONSE_FINISH_REASONS_KEY,
     GEN_AI_SYSTEM_INSTRUCTIONS_KEY,
     GEN_AI_TOOL_ARGS_KEY,
     GEN_AI_TOOL_CALL_ID_KEY,
     GEN_AI_TOOL_CALL_RESULT_KEY,
+    GEN_AI_TOOL_DEFINITIONS_KEY,
     GEN_AI_TOOL_DESCRIPTION_KEY,
     GEN_AI_TOOL_NAME_KEY,
     GEN_AI_TOOL_TYPE_KEY,
@@ -313,6 +315,22 @@ class TestTokenCounts(TestCase):
         self.assertEqual(result[GEN_AI_USAGE_INPUT_TOKENS_KEY], 10)
         self.assertEqual(result[GEN_AI_USAGE_OUTPUT_TOKENS_KEY], 20)
 
+    def test_ignores_reasoning_token_metadata(self):
+        outputs = {
+            "llm_output": {
+                "token_usage": {
+                    "completion_tokens_details": {"reasoning_tokens": 7},
+                    "input_tokens": 10,
+                    "output_token_details": {"reasoning": 5},
+                    "output_tokens": 20,
+                }
+            }
+        }
+        result = dict(token_counts(outputs))
+        self.assertEqual(result[GEN_AI_USAGE_INPUT_TOKENS_KEY], 10)
+        self.assertEqual(result[GEN_AI_USAGE_OUTPUT_TOKENS_KEY], 20)
+        self.assertNotIn(GEN_AI_RESPONSE_FINISH_REASONS_KEY, result)
+
     def test_returns_empty_on_none(self):
         self.assertEqual(list(token_counts(None)), [])
 
@@ -323,9 +341,18 @@ class TestInvocationParameters(TestCase):
             run_type="llm",
             extra={"invocation_params": {"tools": [{"name": "get_weather"}]}},
         )
-        result = list(invocation_parameters(run))
+        result = dict(invocation_parameters(run))
         self.assertEqual(len(result), 1)
-        self.assertIn("get_weather", result[0][1])
+        self.assertIn("get_weather", result[GEN_AI_TOOL_DEFINITIONS_KEY])
+
+    def test_extracts_tools_for_chat_model(self):
+        run = _make_run(
+            run_type="chat_model",
+            extra={"invocation_params": {"functions": [{"name": "get_weather"}]}},
+        )
+        result = dict(invocation_parameters(run))
+        self.assertEqual(len(result), 1)
+        self.assertIn("get_weather", result[GEN_AI_TOOL_DEFINITIONS_KEY])
 
     def test_skips_non_llm(self):
         run = _make_run(run_type="chain", extra={"invocation_params": {"tools": []}})
@@ -355,6 +382,33 @@ class TestFunctionCalls(TestCase):
         result = dict(function_calls(outputs))
         self.assertEqual(result[GEN_AI_TOOL_NAME_KEY], "get_weather")
         self.assertEqual(result[GEN_AI_TOOL_TYPE_KEY], "function")
+        self.assertNotIn(GEN_AI_OPERATION_NAME_KEY, result)
+        self.assertNotIn(GEN_AI_TOOL_ARGS_KEY, result)
+
+    @patch("microsoft.opentelemetry._genai._langchain._utils._should_capture_content_on_spans", return_value=True)
+    def test_extracts_function_call_content_when_enabled(self, _mock_capture):
+        outputs = {
+            "generations": [
+                [
+                    {
+                        "message": {
+                            "kwargs": {
+                                "additional_kwargs": {
+                                    "function_call": {
+                                        "name": "get_weather",
+                                        "arguments": '{"city": "NYC"}',
+                                        "result": {"temperature": "72F"},
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ]
+            ]
+        }
+        result = dict(function_calls(outputs))
+        self.assertEqual(result[GEN_AI_TOOL_ARGS_KEY], '{"city":"NYC"}')
+        self.assertEqual(result[GEN_AI_TOOL_CALL_RESULT_KEY], '{"temperature":"72F"}')
 
     def test_returns_empty_on_none(self):
         self.assertEqual(list(function_calls(None)), [])
@@ -372,10 +426,24 @@ class TestTools(TestCase):
         result = dict(tools(run))
         self.assertEqual(result[GEN_AI_TOOL_NAME_KEY], "calculator")
         self.assertEqual(result[GEN_AI_TOOL_DESCRIPTION_KEY], "Does math")
-        self.assertEqual(result[GEN_AI_TOOL_TYPE_KEY], "extension")
+        self.assertEqual(result[GEN_AI_TOOL_TYPE_KEY], "function")
+        self.assertNotIn(GEN_AI_TOOL_ARGS_KEY, result)
+        self.assertNotIn(GEN_AI_TOOL_CALL_RESULT_KEY, result)
+        self.assertEqual(result[GEN_AI_TOOL_CALL_ID_KEY], "tc-1")
+
+    @patch("microsoft.opentelemetry._genai._langchain._utils._should_capture_content_on_spans", return_value=True)
+    def test_extracts_tool_payloads_when_content_capture_enabled(self, _mock_capture):
+        run = _make_run(
+            run_type="tool",
+            serialized={"name": "calculator", "description": "Does math"},
+            inputs={"input": "2+2"},
+            outputs={"output": "4"},
+            extra={"tool_call_id": "tc-1"},
+        )
+        result = dict(tools(run))
+        self.assertEqual(result[GEN_AI_TOOL_TYPE_KEY], "function")
         self.assertEqual(result[GEN_AI_TOOL_ARGS_KEY], "2+2")
         self.assertEqual(result[GEN_AI_TOOL_CALL_RESULT_KEY], "4")
-        self.assertEqual(result[GEN_AI_TOOL_CALL_ID_KEY], "tc-1")
 
     def test_skips_non_tool(self):
         run = _make_run(run_type="llm", serialized={"name": "calc"})
@@ -383,7 +451,12 @@ class TestTools(TestCase):
 
 
 class TestChainNodeMessages(TestCase):
-    def test_extracts_messages_from_dict(self):
+    def test_skips_messages_when_content_capture_disabled(self):
+        data = {"messages": [{"content": "Hello", "role": "human"}]}
+        self.assertEqual(list(chain_node_messages(data, GEN_AI_INPUT_MESSAGES_KEY)), [])
+
+    @patch("microsoft.opentelemetry._genai._langchain._utils._should_capture_content_on_spans", return_value=True)
+    def test_extracts_messages_from_dict(self, _mock_capture):
         data = {"messages": [{"content": "Hello", "role": "human"}]}
         result = list(chain_node_messages(data, GEN_AI_INPUT_MESSAGES_KEY))
         self.assertEqual(len(result), 1)
@@ -536,3 +609,33 @@ class TestBuildLlmInvocation(TestCase):
         inv = build_llm_invocation(run)
         self.assertEqual(inv.operation_name, CHAT_OPERATION_NAME)
         self.assertIsNone(inv.request_model)
+
+    def test_builds_invocation_with_request_parameters(self):
+        run = _make_run(
+            run_type="llm",
+            outputs={"llm_output": {"model_name": "gpt-4o", "id": "resp-1"}},
+            extra={
+                "invocation_params": {
+                    "temperature": "0.5",
+                    "top_p": "0.9",
+                    "max_tokens": "256",
+                    "frequency_penalty": "0.1",
+                    "presence_penalty": "0.2",
+                    "seed": "7",
+                    "stop": ["END"],
+                    "base_url": "https://example.test/",
+                }
+            },
+            inputs=None,
+        )
+        inv = build_llm_invocation(run)
+        self.assertEqual(inv.temperature, 0.5)
+        self.assertEqual(inv.top_p, 0.9)
+        self.assertEqual(inv.max_tokens, 256)
+        self.assertEqual(inv.frequency_penalty, 0.1)
+        self.assertEqual(inv.presence_penalty, 0.2)
+        self.assertEqual(inv.seed, 7)
+        self.assertEqual(inv.stop_sequences, ["END"])
+        self.assertEqual(inv.server_address, "https://example.test")
+        self.assertEqual(inv.response_model_name, "gpt-4o")
+        self.assertEqual(inv.response_id, "resp-1")
