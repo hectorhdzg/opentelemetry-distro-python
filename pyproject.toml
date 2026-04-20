@@ -48,6 +48,11 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
 ]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "sphinx-autodoc-typehints>=2.0",
+]
 
 [project.entry-points.opentelemetry_instrumentor]
 langchain = "microsoft.opentelemetry._genai._langchain._tracer_instrumentor:LangChainInstrumentor"
