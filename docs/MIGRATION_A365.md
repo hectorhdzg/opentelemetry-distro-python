@@ -13,9 +13,7 @@ This migration covers only the **observability** packages. Other A365 packages
 
 ## Step 1 — Replace pip Dependencies
 
-Remove the standalone A365 observability extension packages and install the distro.
-The core A365 package (`microsoft-agents-a365-observability-core`) is kept as a
-dependency — the distro uses it directly:
+Remove the standalone A365 observability packages and install the distro:
 
 ```
 # ❌ OLD — multiple observability packages
@@ -25,20 +23,20 @@ pip install microsoft-agents-a365-observability-extensions-openai
 pip install microsoft-agents-a365-observability-extensions-semantickernel
 pip install microsoft-agents-a365-observability-extensions-agentframework
 
-# ✅ NEW — single package (includes observability-core as a dependency)
+# ✅ NEW — single package
 pip install microsoft-opentelemetry
 ```
 
 ## Step 2 — Rewrite Import Paths
 
-Scope classes, data models, and enums are still imported from the
-`microsoft_agents_a365.observability.core` package — no import path changes
-needed for those. Only the configuration and setup calls change.
+The old packages used `microsoft_agents_a365.*` namespace.
+The new distro uses `microsoft.opentelemetry.*`.
 
-### Configuration & Setup
+### Core (observability-core)
 
 | Old import path | New import path |
 |-----------------|-----------------|
+| `microsoft_agents_a365.observability.core` | `microsoft.opentelemetry.a365.core` |
 | `from microsoft_agents_a365.observability.core import configure` | `from microsoft.opentelemetry import use_microsoft_opentelemetry` |
 | `from microsoft_agents_a365.observability.core import is_configured` | Remove — not needed |
 | `from microsoft_agents_a365.observability.core import get_tracer` | `from opentelemetry import trace; trace.get_tracer(...)` |
@@ -53,13 +51,39 @@ needed for those. Only the configuration and setup calls change.
 | `from microsoft_agents_a365.observability.core import extract_context_from_headers` | Remove — use OTel propagation APIs |
 | `from microsoft_agents_a365.observability.core import get_traceparent` | Remove — use OTel propagation APIs |
 
-### Scope Classes & Data Models — No Changes Needed
-
-Scope classes, data models, and enums are imported from the same package as before:
+Scope classes, data models, and enums keep working — just change the package prefix:
 
 ```python
-# ✅ These imports remain unchanged
+# ❌ OLD
 from microsoft_agents_a365.observability.core import (
+    AgentDetails,
+    BaggageBuilder,
+    CallerDetails,
+    Channel,
+    ChatMessage,
+    ExecuteToolScope,
+    InferenceCallDetails,
+    InferenceOperationType,
+    InferenceScope,
+    InputMessages,
+    InvokeAgentScope,
+    InvokeAgentScopeDetails,
+    MessageRole,
+    OutputMessage,
+    OutputMessages,
+    OutputScope,
+    Request,
+    Response,
+    ServiceEndpoint,
+    SpanDetails,
+    TextPart,
+    ToolCallDetails,
+    ToolType,
+    UserDetails,
+)
+
+# ✅ NEW — same symbols, different package path
+from microsoft.opentelemetry.a365.core import (
     AgentDetails,
     BaggageBuilder,
     CallerDetails,
@@ -234,7 +258,7 @@ tracer = get_tracer("my-module")
 
 # ✅ NEW — using microsoft-opentelemetry distro
 from microsoft.opentelemetry import use_microsoft_opentelemetry
-from microsoft_agents_a365.observability.core import (
+from microsoft.opentelemetry.a365.core import (
     AgentDetails,
     BaggageBuilder,
     InvokeAgentScope,

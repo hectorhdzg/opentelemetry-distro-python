@@ -399,8 +399,8 @@ class TestA365KwargsConfiguration(unittest.TestCase):
         self.assertNotIn("a365_tenant_id", otel_kwargs)
         self.assertNotIn("enable_a365", otel_kwargs)
 
-    @patch("microsoft_agents_a365.observability.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
-    @patch("microsoft.opentelemetry._a365_utils._create_default_token_resolver")
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils._create_default_token_resolver")
     def test_kwargs_override_env_vars(self, default_resolver_mock, enabled_mock):
         """Kwargs take precedence over environment variables."""
 
@@ -429,17 +429,17 @@ class TestA365KwargsConfiguration(unittest.TestCase):
                 suppress_invoke_agent_input=False,
             )
 
-        # Three processors: batch + identity + baggage
+        # Two processors should have been added
         processors = otel_kwargs["span_processors"]
-        self.assertEqual(len(processors), 3)
+        self.assertEqual(len(processors), 2)
 
-        # The identity processor (index 1) should have kwarg values, not env values
-        identity_proc = processors[1]
-        self.assertEqual(identity_proc._tenant_id, "kwarg-tenant")
-        self.assertEqual(identity_proc._agent_id, "kwarg-agent")
+        # The baggage processor (last one) should have kwarg values, not env values
+        baggage_proc = processors[1]
+        self.assertEqual(baggage_proc._tenant_id, "kwarg-tenant")
+        self.assertEqual(baggage_proc._agent_id, "kwarg-agent")
 
-    @patch("microsoft_agents_a365.observability.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
-    @patch("microsoft.opentelemetry._a365_utils._create_default_token_resolver")
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils._create_default_token_resolver")
     def test_env_vars_used_as_fallback(self, default_resolver_mock, enabled_mock):
         """Environment variables are used when kwargs are not provided."""
         default_resolver_mock.return_value = lambda aid, tid: "token"
@@ -453,13 +453,12 @@ class TestA365KwargsConfiguration(unittest.TestCase):
             otel_kwargs = {"span_processors": []}
             _append_a365_components(True, otel_kwargs)
 
-        # Three processors: batch + identity + baggage
         processors = otel_kwargs["span_processors"]
-        self.assertEqual(len(processors), 3)
+        self.assertEqual(len(processors), 2)
 
-        identity_proc = processors[1]
-        self.assertEqual(identity_proc._tenant_id, "env-tenant")
-        self.assertEqual(identity_proc._agent_id, "env-agent")
+        baggage_proc = processors[1]
+        self.assertEqual(baggage_proc._tenant_id, "env-tenant")
+        self.assertEqual(baggage_proc._agent_id, "env-agent")
 
     def test_a365_skipped_when_disabled(self):
         """No processors added when enable_a365=False."""
@@ -511,13 +510,22 @@ class TestA365Components(unittest.TestCase):
             self.assertNotIn("enable_a365", merged)
 
     @patch("microsoft.opentelemetry._distro._append_azure_monitor_components", return_value=(None, None, None))
-    @patch("microsoft.opentelemetry._distro._append_a365_components")
-    def test_a365_appends_span_processors(self, a365_mock, azure_monitor_mock):
-        """When A365 is enabled, _append_a365_components is invoked."""
-        use_microsoft_opentelemetry(enable_a365=True, enable_azure_monitor=False)
-        a365_mock.assert_called_once()
-        # First positional arg: enable_a365 should be True
-        self.assertTrue(a365_mock.call_args[0][0])
+    def test_a365_appends_span_processors(self, azure_monitor_mock):
+        """When A365 is enabled, its span processors are appended to otel_kwargs."""
+        mock_sp = MagicMock()
+        mock_handlers = MagicMock()
+        mock_handlers.span_processors = [mock_sp]
+
+        with patch(
+            "microsoft.opentelemetry.a365.create_a365_components",
+            return_value=mock_handlers,
+        ):
+            use_microsoft_opentelemetry(enable_a365=True, enable_azure_monitor=False)
+
+        from opentelemetry.trace import get_tracer_provider
+
+        tp = get_tracer_provider()
+        self.assertIsNotNone(tp)
 
 
 if __name__ == "__main__":

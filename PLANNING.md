@@ -135,24 +135,26 @@ All GenAI instrumentations in this package (both direct dependencies and interna
 - Track upstream progress and maintain a checklist of gaps between the internal implementation and the contrib version
 
 
-## Phase 6: A365 Integration
+## Phase 6: A365 Convergence
 
-~~The A365 observability runtime is consumed as **PyPI dependencies** from the `microsoft-agents-a365-observability-core` package published by the Agent365-python repository. The distro does not vendor A365 code — it imports scope classes, span processors, and the exporter directly from the external packages.~~
+The A365 observability runtime will be **migrated as code into this repository**, not consumed as a PyPI dependency. This includes the A365 exporter, custom processors, and all relevant observability extensions.
 
-### ~~Integration Approach~~
+### A365 Code to Migrate In-Repo
 
-- ~~**External dependency** — `microsoft-agents-a365-observability-core` provides all A365 scope classes, data models, the Agent365 exporter, enriching batch span processor, baggage span processor, and constants~~
-- ~~**Distro-specific token resolvers** — FIC and DefaultAzureCredential token resolution logic lives in the distro (`_a365_utils.py`) since it is specific to the distro's authentication strategy~~
-- ~~**Identity stamping** — A lightweight `_A365IdentityProcessor` in the distro stamps `tenant_id` and `agent_id` on every span from distro configuration / environment variables~~
-- ~~**Baggage propagation** — The external package's `SpanProcessor` handles copying OpenTelemetry baggage entries onto span attributes~~
-- ~~**Configuration surface** — `use_microsoft_opentelemetry(enable_a365=True)` kwargs (`a365_tenant_id`, `a365_agent_id`, `a365_cluster_category`, etc.) and corresponding `A365_*` environment variables~~
+- **A365 exporter** — integrate into the distro configuration surface as an in-repo module
+- **Microsoft Agent Framework instrumentation** — instrumentation for Microsoft's internal agent framework, brought in as source code
+- **Baggage extensions** — A365 baggage propagation and enrichment extensions
+- **Custom span processors** — processors required by A365 agent observability scenarios
+- **Other internal observability extensions** — any remaining A365 runtime components needed for agent workloads
 
-### Remaining Work
+### Migration and Convergence Plan
 
-- **TODO: gRPC dependency bloat from `microsoft-agents-a365-observability-core`.** The external package hard-depends on `opentelemetry-exporter-otlp` (the meta-package), which transitively pulls in `opentelemetry-exporter-otlp-proto-grpc` and `grpcio` (~20-40 MB). This distro only uses `opentelemetry-exporter-otlp-proto-http`. File an issue / PR on Agent365-python to change their core dependency from `opentelemetry-exporter-otlp` to `opentelemetry-exporter-otlp-proto-http` and move gRPC to an optional extra (e.g., `pip install microsoft-agents-a365-observability-core[grpc]`).
-- **TODO: Document and enforce provider initialization order.** The a365 `TelemetryManager.configure()` checks for an existing global `TracerProvider` via `trace.get_tracer_provider()` — if one exists with a resource, it adds its span processors to it; otherwise it creates its own and calls `set_tracer_provider()`. This means `use_microsoft_opentelemetry()` **must** be called before a365 `configure()`, or the distro's providers will overwrite a365's and its processors will be lost. Add documentation, a startup check or warning, and integration tests covering both orderings.
-- Track external package version updates and update the distro's minimum version pin accordingly
-- Validate that existing A365 telemetry pipelines continue to work under the new distro setup with the external packages
+- Migrate A365 observability runtime code under a clearly defined internal module boundary (e.g., `_a365/`)
+- **TODO: Investigate Spectra Collector sidecar export path.** The old standalone `config.py` supported a `SpectraExporterOptions` code path that created a standard OTLP exporter (gRPC or HTTP) to a Kubernetes sidecar on localhost (`localhost:4317`/`localhost:4318`). This was dropped during distro integration — need to determine if Spectra sidecar export is actively used, and if so, add it as a distro option (e.g., `a365_exporter_options` kwarg or a dedicated `enable_spectra` flag). The `SpectraExporterOptions` config class still exists but is currently dead code. Re-adding this path would also require restoring the `opentelemetry-exporter-otlp-proto-grpc` dependency.
+- The A365 LangChain instrumentation is partially consumed in Phase 5 as one of the sources for the internal LangChain instrumentation — coordinate with the A365 team to avoid divergence
+- Audit migrated A365 instrumentations and determine which can be contributed to upstream OpenTelemetry contrib — for those with existing upstream equivalents, plan a migration path and deprecation timeline; for those with no upstream equivalent (e.g., Microsoft Agent Framework), keep as Microsoft-specific extensions and evaluate contributing them
+- Validate that existing A365 telemetry pipelines continue to work under the new distro setup with the in-repo code
+- Coordinate with the A365 team on dual maintenance during the transition period (similar to the Azure Monitor Distro approach)
 
 ## Phase 7: Integration and End-to-End Testing
 

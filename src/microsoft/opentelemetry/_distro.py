@@ -207,38 +207,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return val in ("true", "1", "yes", "on")
 
 
-_TENANT_ID_ATTR = "microsoft.tenant.id"
-_AGENT_ID_ATTR = "gen_ai.agent.id"
-
-
-class _A365IdentityProcessor:
-    """Span processor that stamps tenant and agent identity as defaults.
-
-    Only sets attributes that are not already present on the span,
-    so instrumentation or baggage propagation can override these values.
-    """
-
-    def __init__(self, tenant_id: Optional[str] = None, agent_id: Optional[str] = None):
-        self._tenant_id = tenant_id
-        self._agent_id = agent_id
-
-    def on_start(self, span, parent_context=None):  # type: ignore[no-untyped-def]
-        existing = getattr(span, "attributes", None) or {}
-        if self._tenant_id and _TENANT_ID_ATTR not in existing:
-            span.set_attribute(_TENANT_ID_ATTR, self._tenant_id)
-        if self._agent_id and _AGENT_ID_ATTR not in existing:
-            span.set_attribute(_AGENT_ID_ATTR, self._agent_id)
-
-    def on_end(self, span):  # type: ignore[no-untyped-def]
-        pass
-
-    def shutdown(self):  # type: ignore[no-untyped-def]
-        pass
-
-    def force_flush(self, timeout_millis: int = 30000) -> bool:  # type: ignore[no-untyped-def]
-        return True
-
-
 def _append_a365_components(
     enable_a365: bool,
     otel_kwargs: Dict[str, Any],
@@ -264,28 +232,35 @@ def _append_a365_components(
     if disable_tracing:
         return
 
-    from microsoft_agents_a365.observability.core.constants import (
+    from microsoft.opentelemetry.a365.constants import (
+        A365_TENANT_ID_ENV,
+        A365_AGENT_ID_ENV,
+        A365_CLUSTER_CATEGORY_ENV,
+        A365_USE_S2S_ENDPOINT_ENV,
+        A365_SUPPRESS_INVOKE_AGENT_INPUT_ENV,
         ENABLE_A365_OBSERVABILITY_EXPORTER,
     )
-    from microsoft_agents_a365.observability.core.exporters.agent365_exporter import _Agent365Exporter
-    from microsoft_agents_a365.observability.core.exporters.enriching_span_processor import (
+    from microsoft.opentelemetry.a365.core.exporters.agent365_exporter import _Agent365Exporter
+    from microsoft.opentelemetry.a365.core.exporters.enriching_span_processor import (
         _EnrichingBatchSpanProcessor,
     )
-    from microsoft_agents_a365.observability.core.trace_processor.span_processor import SpanProcessor
-    from microsoft_agents_a365.observability.core.exporters.utils import is_agent365_exporter_enabled
-    from microsoft.opentelemetry._a365_utils import _create_default_token_resolver
+    from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
+    from microsoft.opentelemetry.a365.core.exporters.utils import (
+        _create_default_token_resolver,
+        is_agent365_exporter_enabled,
+    )
 
     try:
         # Resolve configuration: kwargs > env vars > defaults
         resolved_token_resolver = token_resolver or _create_default_token_resolver()
-        resolved_tenant_id = tenant_id or os.environ.get("A365_TENANT_ID")
-        resolved_agent_id = agent_id or os.environ.get("A365_AGENT_ID")
-        resolved_cluster_category = cluster_category or os.environ.get("A365_CLUSTER_CATEGORY", "prod")
-        resolved_use_s2s = use_s2s_endpoint if use_s2s_endpoint is not None else _env_bool("A365_USE_S2S_ENDPOINT")
+        resolved_tenant_id = tenant_id or os.environ.get(A365_TENANT_ID_ENV)
+        resolved_agent_id = agent_id or os.environ.get(A365_AGENT_ID_ENV)
+        resolved_cluster_category = cluster_category or os.environ.get(A365_CLUSTER_CATEGORY_ENV, "prod")
+        resolved_use_s2s = use_s2s_endpoint if use_s2s_endpoint is not None else _env_bool(A365_USE_S2S_ENDPOINT_ENV)
         resolved_suppress_input = (
             suppress_invoke_agent_input
             if suppress_invoke_agent_input is not None
-            else _env_bool("A365_SUPPRESS_INVOKE_AGENT_INPUT")
+            else _env_bool(A365_SUPPRESS_INVOKE_AGENT_INPUT_ENV)
         )
 
         # Build the exporter (A365 HTTP or skip if not enabled)
@@ -308,21 +283,14 @@ def _append_a365_components(
             suppress_invoke_agent_input=resolved_suppress_input,
         )
 
-        # Baggage-to-span attribute propagation
-        baggage_processor = SpanProcessor()
+        # Identity stamping + baggage-to-span attribute propagation
+        baggage_processor = A365SpanProcessor(
+            tenant_id=resolved_tenant_id,
+            agent_id=resolved_agent_id,
+        )
 
         otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
         otel_kwargs[SPAN_PROCESSORS_ARG].append(batch_processor)
-
-        # Identity stamping runs first (as a default), baggage processor
-        # runs after and can override with per-request values.
-        if resolved_tenant_id or resolved_agent_id:
-            otel_kwargs[SPAN_PROCESSORS_ARG].append(
-                _A365IdentityProcessor(
-                    tenant_id=resolved_tenant_id,
-                    agent_id=resolved_agent_id,
-                )
-            )
         otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
 
     except Exception:  # pylint: disable=broad-exception-caught
