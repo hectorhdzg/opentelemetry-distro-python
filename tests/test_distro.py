@@ -21,6 +21,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from microsoft.opentelemetry._distro import (
     use_microsoft_opentelemetry,
     _append_a365_components,
+    _append_spectra_components,
     _setup_tracing,
     _setup_metrics,
     _setup_logging,
@@ -526,6 +527,140 @@ class TestA365Components(unittest.TestCase):
 
         tp = get_tracer_provider()
         self.assertIsNotNone(tp)
+
+
+class TestSpectraComponents(unittest.TestCase):
+    """Tests for Spectra sidecar _append_spectra_components."""
+
+    def test_spectra_skipped_when_disabled(self):
+        """No processors added when enable_spectra=False."""
+        otel_kwargs = {"span_processors": []}
+        _append_spectra_components(False, otel_kwargs)
+        self.assertEqual(otel_kwargs["span_processors"], [])
+
+    def test_spectra_skipped_when_tracing_disabled(self):
+        """No processors added when disable_tracing=True."""
+        otel_kwargs = {"span_processors": [], "disable_tracing": True}
+        _append_spectra_components(True, otel_kwargs)
+        self.assertEqual(otel_kwargs["span_processors"], [])
+
+    @patch(
+        "microsoft.opentelemetry._distro.os.environ",
+        {"SPECTRA_PROTOCOL": "grpc"},
+    )
+    def test_grpc_fallback_to_http_when_grpc_unavailable(self):
+        """Falls back to HTTP when gRPC package is not installed."""
+        mock_http_exporter = MagicMock()
+
+        def grpc_import_error(*args, **kwargs):
+            raise ImportError("no grpc")
+
+        otel_kwargs = {}
+        with patch.dict("sys.modules", {"opentelemetry.exporter.otlp.proto.grpc": None,
+                                         "opentelemetry.exporter.otlp.proto.grpc.trace_exporter": None}):
+            with patch(
+                "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
+                return_value=mock_http_exporter,
+            ):
+                _append_spectra_components(True, otel_kwargs, protocol="grpc")
+
+        processors = otel_kwargs.get("span_processors", [])
+        self.assertEqual(len(processors), 1)
+
+    @patch(
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
+    )
+    def test_http_protocol_uses_http_exporter(self, mock_exporter_cls):
+        """protocol='http' uses HTTP exporter directly."""
+        mock_exporter_cls.return_value = MagicMock()
+        otel_kwargs = {}
+        _append_spectra_components(True, otel_kwargs, protocol="http")
+        mock_exporter_cls.assert_called_once()
+        call_kwargs = mock_exporter_cls.call_args
+        self.assertIn("localhost:4318", str(call_kwargs))
+        self.assertEqual(len(otel_kwargs.get("span_processors", [])), 1)
+
+    @patch(
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
+    )
+    def test_http_custom_endpoint(self, mock_exporter_cls):
+        """Custom endpoint is forwarded to the exporter."""
+        mock_exporter_cls.return_value = MagicMock()
+        _append_spectra_components(
+            True, {}, protocol="http", endpoint="http://spectra.local:9999"
+        )
+        call_kwargs = mock_exporter_cls.call_args
+        self.assertEqual(call_kwargs[1]["endpoint"], "http://spectra.local:9999")
+
+    @patch(
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
+    )
+    def test_env_var_endpoint_used_as_fallback(self, mock_exporter_cls):
+        """SPECTRA_ENDPOINT env var is used when no kwarg provided."""
+        mock_exporter_cls.return_value = MagicMock()
+        with patch.dict("os.environ", {"SPECTRA_ENDPOINT": "http://env-spectra:4318"}):
+            _append_spectra_components(True, {}, protocol="http")
+        call_kwargs = mock_exporter_cls.call_args
+        self.assertEqual(call_kwargs[1]["endpoint"], "http://env-spectra:4318")
+
+    @patch(
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter.OTLPSpanExporter",
+    )
+    def test_env_var_protocol(self, mock_exporter_cls):
+        """SPECTRA_PROTOCOL env var selects protocol when kwarg not provided."""
+        mock_exporter_cls.return_value = MagicMock()
+        with patch.dict("os.environ", {"SPECTRA_PROTOCOL": "http"}):
+            _append_spectra_components(True, {})
+        mock_exporter_cls.assert_called_once()
+
+    def test_no_exporter_packages_skips_gracefully(self):
+        """When neither gRPC nor HTTP packages are installed, no crash."""
+        otel_kwargs = {}
+        with patch.dict("sys.modules", {
+            "opentelemetry.exporter.otlp.proto.grpc": None,
+            "opentelemetry.exporter.otlp.proto.grpc.trace_exporter": None,
+            "opentelemetry.exporter.otlp.proto.http": None,
+            "opentelemetry.exporter.otlp.proto.http.trace_exporter": None,
+        }):
+            _append_spectra_components(True, otel_kwargs, protocol="grpc")
+        self.assertEqual(otel_kwargs.get("span_processors", []), [])
+
+    @patch("microsoft.opentelemetry._distro._append_spectra_components")
+    def test_spectra_kwargs_forwarded_from_entry_point(self, spectra_mock):
+        """Spectra kwargs are parsed and forwarded from use_microsoft_opentelemetry."""
+        use_microsoft_opentelemetry(
+            enable_spectra=True,
+            spectra_endpoint="http://my-sidecar:4317",
+            spectra_protocol="grpc",
+            spectra_insecure=False,
+            enable_azure_monitor=False,
+        )
+        spectra_mock.assert_called_once()
+        _, kwargs = spectra_mock.call_args
+        self.assertEqual(kwargs["endpoint"], "http://my-sidecar:4317")
+        self.assertEqual(kwargs["protocol"], "grpc")
+        self.assertEqual(kwargs["insecure"], False)
+
+    @patch("microsoft.opentelemetry._distro._append_spectra_components")
+    def test_spectra_disabled_by_default(self, spectra_mock):
+        """Spectra is disabled by default."""
+        use_microsoft_opentelemetry(enable_azure_monitor=False)
+        spectra_mock.assert_called_once()
+        self.assertFalse(spectra_mock.call_args[0][0])
+
+    @patch("microsoft.opentelemetry._distro._append_spectra_components")
+    def test_spectra_kwargs_not_leaked_to_otel(self, spectra_mock):
+        """Spectra kwargs are consumed and not forwarded to OTel kwargs."""
+        use_microsoft_opentelemetry(
+            enable_spectra=True,
+            spectra_endpoint="http://localhost:4317",
+            enable_azure_monitor=False,
+        )
+        otel_kwargs = spectra_mock.call_args[0][1]
+        self.assertNotIn("enable_spectra", otel_kwargs)
+        self.assertNotIn("spectra_endpoint", otel_kwargs)
+        self.assertNotIn("spectra_protocol", otel_kwargs)
+        self.assertNotIn("spectra_insecure", otel_kwargs)
 
 
 if __name__ == "__main__":

@@ -29,6 +29,10 @@ from microsoft.opentelemetry._constants import (
     DISABLE_METRICS_ARG,
     DISABLE_TRACING_ARG,
     ENABLE_A365_ARG,
+    ENABLE_SPECTRA_ARG,
+    SPECTRA_ENDPOINT_ARG,
+    SPECTRA_PROTOCOL_ARG,
+    SPECTRA_INSECURE_ARG,
     A365_TOKEN_RESOLVER_ARG,
     A365_TENANT_ID_ARG,
     A365_AGENT_ID_ARG,
@@ -46,6 +50,8 @@ from microsoft.opentelemetry._constants import (
     VIEWS_ARG,
     _AZURE_MONITOR_KWARG_MAP,
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
+    _SPECTRA_ENDPOINT_ENV,
+    _SPECTRA_PROTOCOL_ENV,
 )
 from microsoft.opentelemetry._instrumentation import get_dist_dependency_conflicts
 from microsoft.opentelemetry._utils import (
@@ -120,6 +126,20 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
     :keyword bool a365_suppress_invoke_agent_input:
         Strip input messages from InvokeAgent spans before export. Also read from
         ``A365_SUPPRESS_INVOKE_AGENT_INPUT`` env var. Defaults to False.
+    :keyword bool enable_spectra:
+        Enable Spectra Collector sidecar export via OTLP. Defaults to False.
+        Requires ``opentelemetry-exporter-otlp-proto-grpc`` for gRPC protocol;
+        falls back to HTTP if gRPC is unavailable. Logs a warning and skips
+        if neither exporter package is installed.
+    :keyword str spectra_endpoint:
+        Spectra sidecar OTLP endpoint. Also read from ``SPECTRA_ENDPOINT`` env var.
+        Defaults to ``http://localhost:4317`` for gRPC or ``http://localhost:4318``
+        for HTTP.
+    :keyword str spectra_protocol:
+        OTLP protocol for Spectra — ``"grpc"`` or ``"http"``. Also read from
+        ``SPECTRA_PROTOCOL`` env var. Defaults to ``"grpc"``.
+    :keyword bool spectra_insecure:
+        Use insecure (no TLS) connection. Defaults to True (localhost sidecar).
     :rtype: None
     """
 
@@ -132,6 +152,11 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
     a365_use_s2s_endpoint = kwargs.pop(A365_USE_S2S_ENDPOINT_ARG, None)
     a365_suppress_invoke_agent_input = kwargs.pop(A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG, None)
 
+    enable_spectra: bool = bool(kwargs.pop(ENABLE_SPECTRA_ARG, False))
+    spectra_endpoint = kwargs.pop(SPECTRA_ENDPOINT_ARG, None)
+    spectra_protocol = kwargs.pop(SPECTRA_PROTOCOL_ARG, None)
+    spectra_insecure = kwargs.pop(SPECTRA_INSECURE_ARG, None)
+
     # Separate Azure Monitor kwargs from generic OTel kwargs
     otel_kwargs: Dict[str, Any] = {k: v for k, v in kwargs.items() if k not in _AZURE_MONITOR_KWARG_MAP}
     azure_monitor_kwargs: Dict[str, Any] = {
@@ -140,6 +165,15 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
 
     # ---- OTLP exporters (append to user-supplied processors/readers) ----
     _append_otlp_components(otel_kwargs)
+
+    # ---- Spectra sidecar exporter (OTLP gRPC/HTTP to localhost) ----
+    _append_spectra_components(
+        enable_spectra,
+        otel_kwargs,
+        endpoint=spectra_endpoint,
+        protocol=spectra_protocol,
+        insecure=spectra_insecure,
+    )
 
     # ---- A365 exporters (append span processors — traces only) ----
     _append_a365_components(
@@ -295,6 +329,84 @@ def _append_a365_components(
 
     except Exception:  # pylint: disable=broad-exception-caught
         _logger.exception("Failed to create A365 components.")
+
+
+# ---------------------------------------------------------------------------
+# Spectra Sidecar (OTLP gRPC / HTTP) support
+# ---------------------------------------------------------------------------
+
+_SPECTRA_DEFAULT_GRPC_ENDPOINT = "http://localhost:4317"
+_SPECTRA_DEFAULT_HTTP_ENDPOINT = "http://localhost:4318"
+
+
+def _append_spectra_components(
+    enable_spectra: bool,
+    otel_kwargs: Dict[str, Any],
+    endpoint: Any = None,
+    protocol: Any = None,
+    insecure: Any = None,
+) -> None:
+    """Append a Spectra sidecar OTLP span processor to ``otel_kwargs``.
+
+    The Spectra Collector runs as a Kubernetes sidecar accepting OTLP
+    on localhost.  gRPC (port 4317) is preferred; falls back to HTTP
+    (port 4318) if ``opentelemetry-exporter-otlp-proto-grpc`` is not
+    installed.  Logs a warning and skips entirely when neither exporter
+    package is available.
+    """
+    if not enable_spectra:
+        return
+
+    if otel_kwargs.get(DISABLE_TRACING_ARG, False):
+        return
+
+    resolved_protocol = protocol or os.environ.get(_SPECTRA_PROTOCOL_ENV, "grpc")
+    resolved_insecure = insecure if insecure is not None else True
+    resolved_endpoint = endpoint or os.environ.get(_SPECTRA_ENDPOINT_ENV)
+
+    exporter = None
+
+    if resolved_protocol == "grpc":
+        try:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter as GrpcSpanExporter
+
+            grpc_endpoint = resolved_endpoint or _SPECTRA_DEFAULT_GRPC_ENDPOINT
+            exporter = GrpcSpanExporter(endpoint=grpc_endpoint, insecure=resolved_insecure)
+            _logger.info("Spectra sidecar exporter using gRPC at %s", grpc_endpoint)
+        except ImportError:
+            _logger.warning(
+                "opentelemetry-exporter-otlp-proto-grpc is not installed. "
+                "Falling back to HTTP protocol for Spectra sidecar."
+            )
+            resolved_protocol = "http"
+
+    if resolved_protocol == "http":
+        try:
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter as HttpSpanExporter
+
+            http_endpoint = resolved_endpoint or _SPECTRA_DEFAULT_HTTP_ENDPOINT
+            exporter = HttpSpanExporter(endpoint=http_endpoint)
+            _logger.info("Spectra sidecar exporter using HTTP at %s", http_endpoint)
+        except ImportError:
+            _logger.warning(
+                "No OTLP exporter package is installed. "
+                "Spectra sidecar export is disabled. "
+                "Install opentelemetry-exporter-otlp-proto-grpc or "
+                "opentelemetry-exporter-otlp-proto-http."
+            )
+            return
+
+    if exporter is None:
+        return
+
+    try:
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        processor = BatchSpanProcessor(exporter)
+        otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(processor)
+    except Exception:  # pylint: disable=broad-exception-caught
+        _logger.exception("Failed to create Spectra sidecar span processor.")
 
 
 # ---------------------------------------------------------------------------

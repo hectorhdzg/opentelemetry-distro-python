@@ -65,6 +65,15 @@ _AZURE_MONITOR_KWARG_MAP = {
     "azure_monitor_browser_sdk_loader_config": "browser_sdk_loader_config",
 }
 
+# --- Spectra Sidecar Constants ---
+
+ENABLE_SPECTRA_ARG = "enable_spectra"
+SPECTRA_ENDPOINT_ARG = "spectra_endpoint"
+SPECTRA_PROTOCOL_ARG = "spectra_protocol"
+SPECTRA_INSECURE_ARG = "spectra_insecure"
+_SPECTRA_ENDPOINT_ENV = "SPECTRA_ENDPOINT"
+_SPECTRA_PROTOCOL_ENV = "SPECTRA_PROTOCOL"
+
 # --- Agent365 Constants ---
 
 ENABLE_A365_ARG = "enable_a365"
