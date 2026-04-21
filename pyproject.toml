@@ -7,7 +7,7 @@ name = "microsoft-opentelemetry"
 version = "0.1.0a2"
 description = "Minimal template for the Microsoft OpenTelemetry distro for Python"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "azure-core<2.0.0,>=1.28.0",
     "azure-core-tracing-opentelemetry~=1.0.0b11",
@@ -30,7 +30,8 @@ dependencies = [
     "langchain-core>=0.2.0",
     "wrapt>=1.0",
     "opentelemetry-util-genai>=0.3b0",
-    "microsoft-agents-a365-observability-core>=0.3.0.dev4",
+    "microsoft-agents-activity>=0.9.0",
+    "microsoft-agents-hosting-core>=0.9.0",
     "aiohttp>=3.8.0"
 ]
 
@@ -65,10 +66,10 @@ namespaces = true
 
 [tool.black]
 line-length = 120
-target-version = ["py311"]
+target-version = ["py310"]
 
 [tool.pylint.main]
-py-version = "3.11"
+py-version = "3.10"
 
 [tool.pylint.format]
 max-line-length = 120
