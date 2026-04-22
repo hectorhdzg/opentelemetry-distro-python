@@ -44,6 +44,10 @@ _SUPPORTED_INSTRUMENTED_LIBRARIES = (
     "agent_framework",
 )
 
+# --- Console Exporter Constants ---
+
+ENABLE_CONSOLE_ARG = "enable_console"
+
 # --- Microsoft Distro Constants ---
 
 ENABLE_AZURE_MONITOR_ARG = "enable_azure_monitor"

@@ -17,6 +17,7 @@ from microsoft.opentelemetry._constants import (
     SPAN_PROCESSORS_ARG,
 )
 from microsoft.opentelemetry._otlp import is_otlp_enabled, create_otlp_components
+from microsoft.opentelemetry._console import create_console_components
 
 _logger = getLogger(__name__)
 
@@ -49,6 +50,41 @@ def _append_otlp_components(otel_kwargs: Dict[str, Any]) -> None:
     if otlp.metric_reader:
         otel_kwargs[METRIC_READERS_ARG] = list(otel_kwargs.get(METRIC_READERS_ARG) or [])
         otel_kwargs[METRIC_READERS_ARG].append(otlp.metric_reader)
+
+
+# ---------------------------------------------------------------------------
+# Console helper functions
+# ---------------------------------------------------------------------------
+
+
+def _append_console_components(otel_kwargs: Dict[str, Any], enable_console: bool) -> None:
+    """Append console exporters to otel_kwargs when console export is enabled.
+
+    Console export is enabled when ``enable_console=True`` is passed as a
+    kwarg or auto-enabled by the distro when no other exporter is active.
+    This mirrors the ``ExportTarget.Console`` flag from the .NET distro
+    and is intended for local development and debugging.
+
+    Respects per-signal disable flags so that disabled pipelines do not
+    get unnecessary exporters.
+    """
+    if not enable_console:
+        return
+
+    console = create_console_components(
+        enable_traces=not otel_kwargs.get(DISABLE_TRACING_ARG, False),
+        enable_metrics=not otel_kwargs.get(DISABLE_METRICS_ARG, False),
+        enable_logs=not otel_kwargs.get(DISABLE_LOGGING_ARG, False),
+    )
+    if console.span_processor:
+        otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(console.span_processor)
+    if console.log_record_processor:
+        otel_kwargs[LOG_RECORD_PROCESSORS_ARG] = list(otel_kwargs.get(LOG_RECORD_PROCESSORS_ARG) or [])
+        otel_kwargs[LOG_RECORD_PROCESSORS_ARG].append(console.log_record_processor)
+    if console.metric_reader:
+        otel_kwargs[METRIC_READERS_ARG] = list(otel_kwargs.get(METRIC_READERS_ARG) or [])
+        otel_kwargs[METRIC_READERS_ARG].append(console.metric_reader)
 
 
 # ---------------------------------------------------------------------------

@@ -65,6 +65,7 @@ use_microsoft_opentelemetry(
 | `a365_cluster_category` | `str` | `"prod"` | Cluster category for endpoint discovery. Falls back to `A365_CLUSTER_CATEGORY` env var. |
 | `a365_use_s2s_endpoint` | `bool` | `False` | Use the S2S endpoint. Falls back to `A365_USE_S2S_ENDPOINT` env var. |
 | `a365_suppress_invoke_agent_input` | `bool` | `False` | Strip input messages from InvokeAgent spans. Falls back to `A365_SUPPRESS_INVOKE_AGENT_INPUT` env var. |
+| `enable_console` | `bool` | `False` | Enable console exporter for traces, metrics, and logs (development only). Auto-enables when no other exporter is active. Mirrors `ExportTarget.Console` from the .NET distro. |
 
 A365 also reads additional environment variables for FIC (Federated Identity Credential) authentication. Kwargs take precedence when provided.
 
@@ -155,6 +156,21 @@ Per-signal overrides follow the pattern `OTEL_EXPORTER_OTLP_{TRACES,METRICS,LOGS
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 python my_app.py
+```
+
+### Console Exporter (Development)
+
+The console exporter writes traces, metrics, and logs to stdout for local development and debugging. This mirrors the `ExportTarget.Console` behaviour from the [.NET distro](https://github.com/microsoft/opentelemetry-distro-dotnet).
+
+Console export **auto-enables when no other exporter is active** (Azure Monitor off, OTLP off, A365 off). You can also enable it explicitly alongside other exporters.
+
+**Example:**
+
+```python
+use_microsoft_opentelemetry(
+    enable_console=True,
+    enable_azure_monitor=False,
+)
 ```
 
 ### Auto-Instrumented Libraries
