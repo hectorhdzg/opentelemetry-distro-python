@@ -1,0 +1,10 @@
+-e ../../..
+aiohttp
+openai
+microsoft-agents-hosting-aiohttp>=0.5.0
+microsoft-agents-hosting-core>=0.5.0
+microsoft-agents-authentication-msal>=0.5.0
+microsoft-agents-activity>=0.5.0
+uvicorn[standard]~=0.35.0
+starlette>=0.27.0
+python-dotenv>=1.0.0

@@ -8,8 +8,9 @@ applyTo: "**/*.py"
 Users are migrating from the standalone A365 observability PyPI packages under
 `microsoft-agents-a365-observability-*` to a single distro package: `microsoft-opentelemetry`.
 
-This migration covers only the **observability** packages. Other A365 packages
-(hosting, runtime, notifications, tooling) are not part of this distro.
+This migration covers the **observability**, **hosting** (observability middleware),
+and **runtime** packages. Other A365 packages (notifications, tooling) are not
+part of this distro.
 
 ## Step 1 — Replace pip Dependencies
 
@@ -18,10 +19,12 @@ Remove the standalone A365 observability packages and install the distro:
 ```
 # ❌ OLD — multiple observability packages
 pip install microsoft-agents-a365-observability-core
+pip install microsoft-agents-a365-observability-hosting
 pip install microsoft-agents-a365-observability-extensions-langchain
 pip install microsoft-agents-a365-observability-extensions-openai
 pip install microsoft-agents-a365-observability-extensions-semantickernel
 pip install microsoft-agents-a365-observability-extensions-agentframework
+pip install microsoft-agents-a365-runtime
 
 # ✅ NEW — single package
 pip install microsoft-opentelemetry
@@ -150,6 +153,69 @@ from microsoft_agents_a365.observability.extensions.semantickernel import ...
 use_microsoft_opentelemetry(enable_a365=True)
 ```
 
+### Hosting (observability-hosting)
+
+| Old import path | New import path |
+|-----------------|-----------------|
+| `microsoft_agents_a365.observability.hosting.middleware` | `microsoft.opentelemetry.a365.hosting` |
+| `microsoft_agents_a365.observability.hosting.middleware.observability_hosting_manager` | `microsoft.opentelemetry.a365.hosting` |
+| `microsoft_agents_a365.observability.hosting.middleware.baggage_middleware` | `microsoft.opentelemetry.a365.hosting` |
+| `microsoft_agents_a365.observability.hosting.middleware.output_logging_middleware` | `microsoft.opentelemetry.a365.hosting` |
+| `microsoft_agents_a365.observability.hosting.token_cache_helpers` | `microsoft.opentelemetry.a365.hosting.token_cache_helpers` |
+
+```python
+# ❌ OLD
+from microsoft_agents_a365.observability.hosting.middleware.observability_hosting_manager import (
+    ObservabilityHostingManager,
+)
+from microsoft_agents_a365.observability.hosting.middleware import (
+    ObservabilityHostingOptions,
+    BaggageMiddleware,
+    OutputLoggingMiddleware,
+)
+from microsoft_agents_a365.observability.hosting.token_cache_helpers import (
+    AgenticTokenCache,
+    AgenticTokenStruct,
+)
+
+# ✅ NEW — same classes, different package path
+from microsoft.opentelemetry.a365.hosting import (
+    ObservabilityHostingManager,
+    ObservabilityHostingOptions,
+    BaggageMiddleware,
+    OutputLoggingMiddleware,
+)
+from microsoft.opentelemetry.a365.hosting.token_cache_helpers import (
+    AgenticTokenCache,
+    AgenticTokenStruct,
+)
+```
+
+### Runtime (a365-runtime)
+
+| Old import path | New import path |
+|-----------------|-----------------|
+| `microsoft_agents_a365.runtime` | `microsoft.opentelemetry.a365.runtime` |
+| `microsoft_agents_a365.runtime.environment_utils` | `microsoft.opentelemetry.a365.runtime` |
+| `microsoft_agents_a365.runtime.utility` | `microsoft.opentelemetry.a365.runtime` |
+| `microsoft_agents_a365.runtime.power_platform_api_discovery` | `microsoft.opentelemetry.a365.runtime` |
+
+```python
+# ❌ OLD
+from microsoft_agents_a365.runtime.environment_utils import (
+    get_observability_authentication_scope,
+)
+from microsoft_agents_a365.runtime import Utility, PowerPlatformApiDiscovery, ClusterCategory
+
+# ✅ NEW
+from microsoft.opentelemetry.a365.runtime import (
+    get_observability_authentication_scope,
+    Utility,
+    PowerPlatformApiDiscovery,
+    ClusterCategory,
+)
+```
+
 ## Step 3 — Replace configure() with Distro Entry Point
 
 ```python
@@ -220,6 +286,7 @@ tracer = trace.get_tracer("my-module")
 
 | Old env var | New env var | Notes |
 |-------------|-------------|-------|
+| `ENABLE_KAIRO_EXPORTER` | `ENABLE_A365_OBSERVABILITY_EXPORTER` | Renamed — enables A365 HTTP exporter |
 | `ENABLE_A365_OBSERVABILITY_EXPORTER` | `ENABLE_A365_OBSERVABILITY_EXPORTER` | Same — enables A365 HTTP exporter |
 | `A365_TENANT_ID` | `A365_TENANT_ID` | Same — or use `a365_tenant_id` kwarg |
 | `A365_AGENT_ID` | `A365_AGENT_ID` | Same — or use `a365_agent_id` kwarg |
@@ -227,6 +294,34 @@ tracer = trace.get_tracer("my-module")
 | `A365_USE_S2S_ENDPOINT` | `A365_USE_S2S_ENDPOINT` | Same — or use `a365_use_s2s_endpoint` kwarg |
 | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | Same — or use `a365_suppress_invoke_agent_input` kwarg |
 | `ENABLE_OTLP_EXPORTER` | `OTEL_EXPORTER_OTLP_ENDPOINT` | Use standard OTel env var instead |
+
+## Step 6 — Update ObservabilityHostingManager Configuration
+
+The hosting middleware setup is the same pattern, but the import path and
+`ObservabilityHostingOptions` parameter names changed:
+
+```python
+# ❌ OLD
+from microsoft_agents_a365.observability.hosting.middleware.observability_hosting_manager import (
+    ObservabilityHostingManager,
+)
+from microsoft_agents_a365.observability.hosting.middleware import ObservabilityHostingOptions
+
+ObservabilityHostingManager.configure(
+    adapter.middleware_set, ObservabilityHostingOptions(True, True)
+)
+
+# ✅ NEW — named parameters for clarity
+from microsoft.opentelemetry.a365.hosting import (
+    ObservabilityHostingManager,
+    ObservabilityHostingOptions,
+)
+
+ObservabilityHostingManager.configure(
+    adapter.middleware_set,
+    ObservabilityHostingOptions(enable_baggage=True, enable_output_logging=True),
+)
+```
 
 ## Full Migration Example
 
