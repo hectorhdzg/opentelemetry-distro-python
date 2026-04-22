@@ -10,7 +10,7 @@ Python package for a Microsoft OpenTelemetry distribution that provides a single
 
 ### Prerequisites
 
-- Python 3.11 or later — [Install Python](https://www.python.org/downloads/)
+- Python 3.10 or later — [Install Python](https://www.python.org/downloads/)
 - Azure subscription (optional, for Azure Monitor) — [Create a free account](https://azure.microsoft.com/free/)
 - Application Insights resource (optional) — [How to use Application Insights](https://learn.microsoft.com/azure/azure-monitor/app/app-insights-overview)
 
