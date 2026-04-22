@@ -58,6 +58,8 @@ docs = [
 
 [project.entry-points.opentelemetry_instrumentor]
 langchain = "microsoft.opentelemetry._genai._langchain._tracer_instrumentor:LangChainInstrumentor"
+semantic_kernel = "microsoft.opentelemetry._semantic_kernel._trace_instrumentor:SemanticKernelInstrumentor"
+agent_framework = "microsoft.opentelemetry._agent_framework._trace_instrumentor:AgentFrameworkInstrumentor"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

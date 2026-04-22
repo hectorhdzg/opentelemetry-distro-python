@@ -40,6 +40,8 @@ _SUPPORTED_INSTRUMENTED_LIBRARIES = (
     "langchain",
     "openai",
     "openai_agents",
+    "semantic_kernel",
+    "agent_framework",
 )
 
 # --- Microsoft Distro Constants ---

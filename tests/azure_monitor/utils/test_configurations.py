@@ -113,6 +113,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
                 "previewlib1": {"enabled": False},
                 "previewlib2": {"enabled": False},
             },
@@ -150,6 +152,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -201,6 +205,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -288,6 +294,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": False},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
 
@@ -307,6 +315,8 @@ class TestConfigurations(TestCase):
                 "previewlib1": {"enabled": True, "foo": "bar"},
                 "previewlib2": {"foo": "bar"},
                 "langchain": {"enabled": False},
+                "semantic_kernel": {"enabled": False},
+                "agent_framework": {"enabled": True},
             }
         )
 
@@ -326,6 +336,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": False},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": False},
+                "agent_framework": {"enabled": True},
             },
         )
 
@@ -474,6 +486,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -504,6 +518,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -545,6 +561,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -586,6 +604,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -628,6 +648,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
@@ -669,6 +691,8 @@ class TestConfigurations(TestCase):
                 "langchain": {"enabled": True},
                 "openai": {"enabled": True},
                 "openai_agents": {"enabled": True},
+                "semantic_kernel": {"enabled": True},
+                "agent_framework": {"enabled": True},
             },
         )
         self.assertEqual(configurations["resource"].attributes, TEST_DEFAULT_RESOURCE.attributes)
