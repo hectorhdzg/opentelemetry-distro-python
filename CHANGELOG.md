@@ -1,5 +1,18 @@
 # Release History
 
+## 0.1.0a3 (2026-04-22)
+
+### Features Added
+
+- Vendor A365 core observability code
+  ([#47](https://github.com/microsoft/opentelemetry-distro-python/pull/47))
+- Add agent framework and semantic kernel instrumentations
+  ([#50](https://github.com/microsoft/opentelemetry-distro-python/pull/50))
+- Add Spectra Collector sidecar support with graceful fallback
+  ([#48](https://github.com/microsoft/opentelemetry-distro-python/pull/48))
+- Add console exporter for traces, metrics, and logs
+  ([#54](https://github.com/microsoft/opentelemetry-distro-python/pull/54))
+
 ## 0.1.0a2 (2026-04-20)
 
 ### Features Added
