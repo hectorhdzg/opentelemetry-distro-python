@@ -1,22 +1,30 @@
 # microsoft-opentelemetry
 
 [![PyPI version](https://img.shields.io/pypi/v/microsoft-opentelemetry)](https://pypi.org/project/microsoft-opentelemetry/)
-
-## Repository Setup
-
-The GitHub repository was provisioned with an onboarding placeholder that indicates repository setup and access control configuration may still need to be completed in the onboarding portal.
-
-Until that setup is complete, some repository settings or access-management actions may remain restricted.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python versions](https://img.shields.io/pypi/pyversions/microsoft-opentelemetry)](https://pypi.org/project/microsoft-opentelemetry/)
 
 Python package for a Microsoft OpenTelemetry distribution that provides a single onboarding experience for observability across Azure Monitor, OTLP-compatible backends, and Microsoft Agent 365 style integrations.
 
-This repository starts from the POC described in `azure-data/microsoft-opentelemetry-distro-poc`, but is intentionally kept minimal while the package shape and delivery plan are being defined.
+## Getting Started
 
-## Goal
+### Prerequisites
 
-The target package should reduce fragmented setup across multiple observability stacks to one import and one configuration function.
+- Python 3.11 or later — [Install Python](https://www.python.org/downloads/)
+- Azure subscription (optional, for Azure Monitor) — [Create a free account](https://azure.microsoft.com/free/)
+- Application Insights resource (optional) — [How to use Application Insights](https://learn.microsoft.com/azure/azure-monitor/app/app-insights-overview)
 
-Intended API shape:
+### Install the package
+
+Install the Microsoft OpenTelemetry Distro with [pip](https://pypi.org/project/pip/):
+
+```bash
+pip install microsoft-opentelemetry
+```
+
+### Usage
+
+Use `use_microsoft_opentelemetry` to set up instrumentation for your application. All pass-in parameters take priority over any related environment variables.
 
 ```python
 from microsoft.opentelemetry import use_microsoft_opentelemetry
@@ -26,7 +34,7 @@ use_microsoft_opentelemetry(
 )
 ```
 
-### Available Configuration Options
+#### Configuration Options
 
 | Keyword argument | Type | Default | Description |
 |---|---|---|---|
@@ -58,7 +66,21 @@ use_microsoft_opentelemetry(
 | `a365_use_s2s_endpoint` | `bool` | `False` | Use the S2S endpoint. Falls back to `A365_USE_S2S_ENDPOINT` env var. |
 | `a365_suppress_invoke_agent_input` | `bool` | `False` | Strip input messages from InvokeAgent spans. Falls back to `A365_SUPPRESS_INVOKE_AGENT_INPUT` env var. |
 
-A365 also reads additional environment variables defined in `a365/constants.py` (e.g. `ENABLE_A365_OBSERVABILITY_EXPORTER`, `A365_OBSERVABILITY_DOMAIN_OVERRIDE`, FIC auth vars). Kwargs take precedence when provided.
+A365 also reads additional environment variables for FIC (Federated Identity Credential) authentication. Kwargs take precedence when provided.
+
+#### FIC Authentication Environment Variables
+
+These are used automatically when no `a365_token_resolver` kwarg is provided and the hosting environment supplies them:
+
+| Environment variable | Description |
+|---|---|
+| `CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTID` | Service principal client ID for the FIC flow. |
+| `CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTSECRET` | Service principal client secret. |
+| `CONNECTIONS__SERVICE_CONNECTION__SETTINGS__TENANTID` | AAD tenant ID for the FIC authority. |
+| `A365_AGENT_APP_INSTANCE_ID` | Agent application instance ID for the FIC grant. |
+| `A365_AGENTIC_USER_ID` | Agentic user ID for the FIC user-assertion step. |
+
+When FIC variables are not available, `DefaultAzureCredential` from `azure-identity` is used as a fallback.
 
 ### Sampling Configuration
 
@@ -112,49 +134,86 @@ export A365_TENANT_ID=my-tenant-id
 export A365_AGENT_ID=my-agent-id
 ```
 
-## Planned Scope
+### OTLP Export Configuration
 
-- Azure Monitor exporter support
-- OTLP exporter support
-- Microsoft-specific agent observability extensions
-- GenAI instrumentation toggles for OpenAI, OpenAI Agents, and LangChain
-- Standard Python web and HTTP instrumentations
-- Environment-variable driven configuration
-- A stable package surface for downstream agent applications
+OTLP export is automatically enabled when any of the standard `OTEL_EXPORTER_OTLP_*` endpoint environment variables are set. No kwargs are needed.
 
-## Reference POC Highlights
+| Environment variable | Description |
+|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Base endpoint URL for all signals (e.g. `http://localhost:4318`). |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Per-signal override for traces. |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Per-signal override for metrics. |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` | Per-signal override for logs. |
+| `OTEL_EXPORTER_OTLP_HEADERS` | Comma-separated `key=value` pairs sent as headers. |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | Max time in milliseconds per export request. |
+| `OTEL_EXPORTER_OTLP_COMPRESSION` | `gzip` or `none`. |
 
-The source POC positions the distro around three outcomes:
+Per-signal overrides follow the pattern `OTEL_EXPORTER_OTLP_{TRACES,METRICS,LOGS}_{ENDPOINT,HEADERS,TIMEOUT,COMPRESSION}`.
 
-- one package, one API, one documentation surface
-- less duplicated exporter and instrumentation wiring across teams
-- much less application boilerplate compared with manual OpenTelemetry setup
-
-The POC also describes this execution model:
-
-1. Configure Azure Monitor when enabled
-2. Otherwise create standalone OpenTelemetry providers
-3. Attach OTLP exporters when requested
-4. Attach Microsoft-specific exporters when requested
-5. Enable standard instrumentations
-6. Enable Microsoft-specific observability instrumentations
-7. Enable GenAI contrib instrumentations
-
-## Development
-
-Create an environment and install the project with test dependencies:
+**Example:**
 
 ```bash
-pip install -e .[test]
-pytest
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+python my_app.py
 ```
 
-## Reference
+### Auto-Instrumented Libraries
 
-- POC repo: https://github.com/azure-data/microsoft-opentelemetry-distro-poc
-- Planning document: [PLANNING.md](./PLANNING.md)
+The distro automatically instruments the following libraries when they are installed:
+
+| Library | Category |
+|---|---|
+| `django` | Web framework |
+| `fastapi` | Web framework |
+| `flask` | Web framework |
+| `psycopg2` | Database |
+| `requests` | HTTP client |
+| `urllib` | HTTP client |
+| `urllib3` | HTTP client |
+| `openai` | GenAI |
+| `openai_agents` | GenAI |
+| `langchain` | GenAI |
+| `azure_sdk` | Azure (enabled when Azure Monitor is active) |
+
+Individual instrumentations can be toggled via the `instrumentation_options` kwarg:
+
+```python
+use_microsoft_opentelemetry(
+    instrumentation_options={
+        "flask": {"enabled": False},      # disable Flask instrumentation
+        "openai": {"enabled": True},      # explicitly enable (default)
+    },
+)
+```
+
+
+
+
+
+## Troubleshooting
+
+Enable SDK-level logging to diagnose issues:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+The Azure Monitor exporter raises exceptions defined in [Azure Core](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/core/azure-core/README.md#azure-core-library-exceptions).
+
+## Next Steps
+
+- [Azure Monitor OpenTelemetry documentation](https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-enable?tabs=python)
+- [OpenTelemetry Python documentation](https://opentelemetry.io/docs/instrumentation/python/)
+- [Samples](./samples/)
 
 ## Contributing
+
+This project welcomes contributions and suggestions. Most contributions require you to agree to a Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us the rights to use your contribution. For details, visit https://cla.microsoft.com.
+
+When you submit a pull request, a CLA-bot will automatically determine whether you need to provide a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions provided by the bot. You will only need to do this once across all repos using our CLA.
+
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 Read our [contributing guide](./CONTRIBUTING.md) to learn about our development process, how to propose bugfixes and improvements, and how to build and test your changes to this distribution.
 

@@ -227,6 +227,7 @@ tracer = trace.get_tracer("my-module")
 | `A365_USE_S2S_ENDPOINT` | `A365_USE_S2S_ENDPOINT` | Same — or use `a365_use_s2s_endpoint` kwarg |
 | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | Same — or use `a365_suppress_invoke_agent_input` kwarg |
 | `ENABLE_OTLP_EXPORTER` | `OTEL_EXPORTER_OTLP_ENDPOINT` | Use standard OTel env var instead |
+| `ENABLE_OBSERVABILITY` | `ENABLE_OBSERVABILITY` | Same — master switch for A365 scope classes to emit spans |
 
 ## Full Migration Example
 
