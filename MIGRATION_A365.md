@@ -150,6 +150,20 @@ from microsoft_agents_a365.observability.extensions.semantickernel import ...
 use_microsoft_opentelemetry(enable_a365=True)
 ```
 
+### Extensions — Agent Framework (observability-extensions-agentframework)
+
+```python
+# ❌ OLD — manual instrumentor setup
+from microsoft_agents_a365.observability.extensions.agentframework import AgentFrameworkTraceInstrumentor
+
+AgentFrameworkTraceInstrumentor().instrument()
+
+# ✅ NEW — auto-instrumented by distro, no manual setup needed
+# Set ENABLE_A365_OBSERVABILITY_EXPORTER=true in env
+use_microsoft_opentelemetry(enable_a365=True)
+# Agent Framework is auto-instrumented if the agent-framework package is installed
+```
+
 ## Step 3 — Replace configure() with Distro Entry Point
 
 ```python
