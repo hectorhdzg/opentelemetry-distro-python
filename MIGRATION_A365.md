@@ -8,8 +8,13 @@ applyTo: "**/*.py"
 Users are migrating from the standalone A365 observability PyPI packages under
 `microsoft-agents-a365-observability-*` to a single distro package: `microsoft-opentelemetry`.
 
-This migration covers only the **observability** packages. Other A365 packages
-(hosting, runtime, notifications, tooling) are not part of this distro.
+This migration covers the **observability** packages, along with the related **hosting** and **runtime** packages.
+Other A365 packages, such as notifications and tooling, are not part of this distro.
+
+The distro bundles:
+- **`a365/core`** — Scope classes, span enrichment, A365 exporter, baggage middleware
+- **`a365/hosting`** — Hosting middleware (baggage, output logging, invoke-agent scope helpers).
+- **`a365/runtime`** — Standalone utilities (Power Platform API discovery, JWT token introspection, environment detection).
 
 ## Step 1 — Replace pip Dependencies
 
@@ -108,6 +113,57 @@ from microsoft.opentelemetry.a365.core import (
     ToolCallDetails,
     ToolType,
     UserDetails,
+)
+```
+
+### Hosting (microsoft-agents-a365-observability-hosting)
+
+```python
+# ❌ OLD
+from microsoft_agents_a365.hosting import (
+    BaggageMiddleware,
+    OutputLoggingMiddleware,
+    A365_PARENT_TRACEPARENT_KEY,
+    ObservabilityHostingManager,
+    ObservabilityHostingOptions,
+)
+from microsoft_agents_a365.hosting.middleware.baggage_middleware import BaggageMiddleware
+from microsoft_agents_a365.hosting.scope_helpers.populate_baggage import populate_baggage
+from microsoft_agents_a365.hosting.scope_helpers.populate_invoke_agent_scope import populate_invoke_agent_scope
+
+# ✅ NEW — same symbols, different package path
+from microsoft.opentelemetry.a365.hosting import (
+    BaggageMiddleware,
+    OutputLoggingMiddleware,
+    A365_PARENT_TRACEPARENT_KEY,
+    ObservabilityHostingManager,
+    ObservabilityHostingOptions,
+)
+from microsoft.opentelemetry.a365.hosting.scope_helpers.populate_baggage import populate_baggage
+from microsoft.opentelemetry.a365.hosting.scope_helpers.populate_invoke_agent_scope import populate_invoke_agent_scope
+```
+
+### Runtime (microsoft-agents-a365-runtime)
+
+```python
+# ❌ OLD
+from microsoft_agents_a365.runtime import (
+    get_observability_authentication_scope,
+    PowerPlatformApiDiscovery,
+    ClusterCategory,
+    Utility,
+    OperationError,
+    OperationResult,
+)
+
+# ✅ NEW — same symbols, different package path
+from microsoft.opentelemetry.a365.runtime import (
+    get_observability_authentication_scope,
+    PowerPlatformApiDiscovery,
+    ClusterCategory,
+    Utility,
+    OperationError,
+    OperationResult,
 )
 ```
 
