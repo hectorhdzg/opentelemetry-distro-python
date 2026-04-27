@@ -220,7 +220,7 @@ def get_sdk_version() -> str:
         The SDK version string, or "0.0.0-unknown" if not found
     """
     try:
-        return version("microsoft-agents-a365-observability-core")
+        return version("microsoft-opentelemetry")
     except Exception:
         return "0.0.0-unknown"
 
