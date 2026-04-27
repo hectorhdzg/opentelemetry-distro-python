@@ -66,6 +66,7 @@ The exporter authenticates with a Bearer token. Provide a sync callable `(agent_
 ### Manual
 
 ```python
+from microsoft.opentelemetry import use_microsoft_opentelemetry
 from microsoft.opentelemetry.a365.runtime import get_observability_authentication_scope
 
 _cached_token: str | None = None
@@ -88,25 +89,33 @@ async def on_message(context: TurnContext, _state: TurnState):
 ### AgenticTokenCache
 
 ```python
-import asyncio
+from microsoft.opentelemetry import use_microsoft_opentelemetry
 from microsoft.opentelemetry.a365.hosting.token_cache_helpers import AgenticTokenCache, AgenticTokenStruct
 from microsoft.opentelemetry.a365.runtime import get_observability_authentication_scope
 
 token_cache = AgenticTokenCache()
 
-# get_observability_token is async; wrap for the sync interface
+_cached_tokens: dict[tuple[str, str], str | None] = {}
+
+# Keep the sync resolver side-effect free; refresh the cache in async request handling.
 def sync_token_resolver(agent_id: str, tenant_id: str) -> str | None:
-    return asyncio.run(token_cache.get_observability_token(agent_id, tenant_id))
+    return _cached_tokens.get((agent_id, tenant_id))
 
 use_microsoft_opentelemetry(enable_a365=True, a365_token_resolver=sync_token_resolver)
 
 @AGENT_APP.activity("message", auth_handlers=["AGENTIC"])
 async def on_message(context: TurnContext, _state: TurnState):
+    agent_id = "agent-456"
+    tenant_id = "tenant-123"
     token_cache.register_observability(
-        agent_id="agent-456",
-        tenant_id="tenant-123",
+        agent_id=agent_id,
+        tenant_id=tenant_id,
         token_generator=AgenticTokenStruct(authorization=AGENT_APP.auth, turn_context=context),
         observability_scopes=get_observability_authentication_scope(),
+    )
+    _cached_tokens[(agent_id, tenant_id)] = await token_cache.get_observability_token(
+        agent_id,
+        tenant_id,
     )
 ```
 

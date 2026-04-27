@@ -61,10 +61,7 @@ class TestExportConfigConsistency(unittest.TestCase):
     def test_export_url_standard_path_structure(self):
         """Standard export URL must use the pinned path pattern."""
         url = build_export_url(self.EXPECTED_ENDPOINT, "a1", "t1")
-        expected = (
-            f"{self.EXPECTED_ENDPOINT}"
-            f"{self.EXPECTED_STANDARD_PATH.format(tid='t1', aid='a1')}?api-version=1"
-        )
+        expected = f"{self.EXPECTED_ENDPOINT}" f"{self.EXPECTED_STANDARD_PATH.format(tid='t1', aid='a1')}?api-version=1"
         self.assertEqual(
             url,
             expected,
@@ -75,10 +72,7 @@ class TestExportConfigConsistency(unittest.TestCase):
     def test_export_url_s2s_path_structure(self):
         """S2S export URL must use the pinned path pattern."""
         url = build_export_url(self.EXPECTED_ENDPOINT, "a1", "t1", use_s2s_endpoint=True)
-        expected = (
-            f"{self.EXPECTED_ENDPOINT}"
-            f"{self.EXPECTED_S2S_PATH.format(tid='t1', aid='a1')}?api-version=1"
-        )
+        expected = f"{self.EXPECTED_ENDPOINT}" f"{self.EXPECTED_S2S_PATH.format(tid='t1', aid='a1')}?api-version=1"
         self.assertEqual(
             url,
             expected,

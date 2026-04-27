@@ -1,24 +1,19 @@
 ---
-description: "Use when migrating code from the standalone Agent365 Python SDK packages (microsoft-agents-a365-*) to the Microsoft OpenTelemetry (microsoft-opentelemetry). Covers pip dependency changes, import path rewrites, configure() removal, exporter options, and environment variable mappings."
+description: "Use when migrating code from the standalone Agent365 Python SDK packages (microsoft-agents-a365-*) to the Microsoft OpenTelemetry Distro (microsoft-opentelemetry). Covers pip dependency changes, import path rewrites, configure() removal, exporter options, and environment variable mappings."
 applyTo: "**/*.py"
 ---
 
-# Agent365 Python SDK → Microsoft OpenTelemetry Migration
+# Agent365 Python SDK → Microsoft OpenTelemetry Distro Migration
 
 Users are migrating from the standalone A365 observability PyPI packages under
-`microsoft-agents-a365-observability-*` to a single package: `microsoft-opentelemetry`.
+`microsoft-agents-a365-observability-*` to a single distro package: `microsoft-opentelemetry`.
 
-This migration covers the **observability** packages, along with the related **hosting** and **runtime** packages.
-Other A365 packages, such as notifications and tooling, are not part of this package.
-
-The distro bundles:
-- **`a365/core`** — Scope classes, span enrichment, A365 exporter, baggage middleware
-- **`a365/hosting`** — Hosting middleware (baggage, output logging, invoke-agent scope helpers).
-- **`a365/runtime`** — Standalone utilities (Power Platform API discovery, JWT token introspection, environment detection).
+This migration covers only the **observability** packages. Other A365 packages
+(hosting, runtime, notifications, tooling) are not part of this distro.
 
 ## Step 1 — Replace pip Dependencies
 
-Remove the standalone A365 observability packages and install microsoft-opentelemetry:
+Remove the standalone A365 observability packages and install the distro:
 
 ```
 # ❌ OLD — multiple observability packages
@@ -116,57 +111,6 @@ from microsoft.opentelemetry.a365.core import (
 )
 ```
 
-### Hosting (microsoft-agents-a365-observability-hosting)
-
-```python
-# ❌ OLD
-from microsoft_agents_a365.hosting import (
-    BaggageMiddleware,
-    OutputLoggingMiddleware,
-    A365_PARENT_TRACEPARENT_KEY,
-    ObservabilityHostingManager,
-    ObservabilityHostingOptions,
-)
-from microsoft_agents_a365.hosting.middleware.baggage_middleware import BaggageMiddleware
-from microsoft_agents_a365.hosting.scope_helpers.populate_baggage import populate_baggage
-from microsoft_agents_a365.hosting.scope_helpers.populate_invoke_agent_scope import populate_invoke_agent_scope
-
-# ✅ NEW — same symbols, different package path
-from microsoft.opentelemetry.a365.hosting import (
-    BaggageMiddleware,
-    OutputLoggingMiddleware,
-    A365_PARENT_TRACEPARENT_KEY,
-    ObservabilityHostingManager,
-    ObservabilityHostingOptions,
-)
-from microsoft.opentelemetry.a365.hosting.scope_helpers.populate_baggage import populate_baggage
-from microsoft.opentelemetry.a365.hosting.scope_helpers.populate_invoke_agent_scope import populate_invoke_agent_scope
-```
-
-### Runtime (microsoft-agents-a365-runtime)
-
-```python
-# ❌ OLD
-from microsoft_agents_a365.runtime import (
-    get_observability_authentication_scope,
-    PowerPlatformApiDiscovery,
-    ClusterCategory,
-    Utility,
-    OperationError,
-    OperationResult,
-)
-
-# ✅ NEW — same symbols, different package path
-from microsoft.opentelemetry.a365.runtime import (
-    get_observability_authentication_scope,
-    PowerPlatformApiDiscovery,
-    ClusterCategory,
-    Utility,
-    OperationError,
-    OperationResult,
-)
-```
-
 ### Extensions — LangChain (observability-extensions-langchain)
 
 ```python
@@ -206,20 +150,6 @@ from microsoft_agents_a365.observability.extensions.semantickernel import ...
 use_microsoft_opentelemetry(enable_a365=True)
 ```
 
-### Extensions — Agent Framework (observability-extensions-agentframework)
-
-```python
-# ❌ OLD — manual instrumentor setup
-from microsoft_agents_a365.observability.extensions.agentframework import AgentFrameworkTraceInstrumentor
-
-AgentFrameworkTraceInstrumentor().instrument()
-
-# ✅ NEW — auto-instrumented by distro, no manual setup needed
-# Set ENABLE_A365_OBSERVABILITY_EXPORTER=true in env
-use_microsoft_opentelemetry(enable_a365=True)
-# Agent Framework is auto-instrumented if the agent-framework package is installed
-```
-
 ## Step 3 — Replace configure() with Distro Entry Point
 
 ```python
@@ -237,38 +167,27 @@ configure(
     suppress_invoke_agent_input=True,
 )
 
-# ✅ NEW — distro entry point with kwargs.
-# Set ENABLE_A365_OBSERVABILITY_EXPORTER=true in env.
-# `service.name` and `service.namespace` are set via an OTel Resource
-# (the old `service_name` / `service_namespace` configure() args).
-from opentelemetry.sdk.resources import Resource
-
+# ✅ NEW — distro entry point with kwargs
+# Set ENABLE_A365_OBSERVABILITY_EXPORTER=true in env
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 
 use_microsoft_opentelemetry(
     enable_a365=True,
-    resource=Resource.create({
-        "service.name": "my-agent",
-        "service.namespace": "my-namespace",
-    }),
     a365_token_resolver=my_token_resolver,
+    a365_tenant_id="my-tenant",
+    a365_agent_id="my-agent",
     a365_cluster_category="prod",
     a365_use_s2s_endpoint=True,
     a365_suppress_invoke_agent_input=True,
 )
 ```
 
-> **Note.** ``service.name`` and ``service.namespace`` can also be set via the
-> ``OTEL_SERVICE_NAME`` and ``OTEL_RESOURCE_ATTRIBUTES`` environment variables
-> (e.g. ``OTEL_RESOURCE_ATTRIBUTES="service.namespace=my-namespace"``). Use
-> a ``Resource`` when you want to express them in code.
-
 ### configure() Parameter Mapping
 
 | Old `configure()` parameter | New equivalent |
 |-----------------------------|----------------|
 | `service_name` | `OTEL_SERVICE_NAME` env var or `resource` kwarg |
-| `service_namespace` | `resource` kwarg with `service.namespace` attribute |
+| `service_namespace` | `resource` kwarg with `SERVICE_NAMESPACE` attribute |
 | `token_resolver` | `a365_token_resolver` kwarg |
 | `cluster_category` | `a365_cluster_category` kwarg or `A365_CLUSTER_CATEGORY` env var |
 | `exporter_options` | Individual kwargs or env vars (see below) |
@@ -297,52 +216,13 @@ from opentelemetry import trace
 tracer = trace.get_tracer("my-module")
 ```
 
-## Default Instrumentations With A365 exporter enabled
-
-The distro auto-discovers and activates supported OTel instrumentations.
-When `enable_a365=True`, the distro **disables web-framework /
-HTTP-client instrumentations by default**. GenAI instrumentations stay enabled.
-
-> **Note:** When both `enable_a365=True` and `enable_azure_monitor=True` are
-> set, the original (non-A365) defaults are used and the libraries below
-> remain **enabled** so Azure Monitor continues to receive web/HTTP
-> telemetry.
-
-| Library | Default with A365 |
-|---|---|
-| `django` | disabled |
-| `fastapi` | disabled |
-| `flask` | disabled |
-| `psycopg2` | disabled |
-| `requests` | disabled |
-| `urllib` | disabled |
-| `urllib3` | disabled |
-| `azure_sdk` | disabled |
-| `openai` | enabled |
-| `openai_agents` | enabled |
-| `langchain` | enabled |
-| `semantic_kernel` | enabled |
-| `agent_framework` | enabled |
-
-To re-enable any of these, pass `instrumentation_options`:
-
-```python
-use_microsoft_opentelemetry(
-    enable_a365=True,
-    instrumentation_options={
-        "fastapi": {"enabled": True},
-    },
-)
-```
-
-When `enable_a365=False` (the default), all supported instrumentations
-remain enabled by default.
-
 ## Environment Variable Mapping
 
 | Old env var | New env var | Notes |
 |-------------|-------------|-------|
-| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `ENABLE_A365_OBSERVABILITY_EXPORTER` | Same — enables A365 HTTP exporter. Set to `false` with `enable_a365=True` to get enriched span attributes without exporting to A365. |
+| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `ENABLE_A365_OBSERVABILITY_EXPORTER` | Same — enables A365 HTTP exporter |
+| `A365_TENANT_ID` | `A365_TENANT_ID` | Same — or use `a365_tenant_id` kwarg |
+| `A365_AGENT_ID` | `A365_AGENT_ID` | Same — or use `a365_agent_id` kwarg |
 | `A365_CLUSTER_CATEGORY` | `A365_CLUSTER_CATEGORY` | Same — or use `a365_cluster_category` kwarg |
 | `A365_USE_S2S_ENDPOINT` | `A365_USE_S2S_ENDPOINT` | Same — or use `a365_use_s2s_endpoint` kwarg |
 | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | Same — or use `a365_suppress_invoke_agent_input` kwarg |
@@ -378,8 +258,6 @@ CustomLangChainInstrumentor().instrument()
 tracer = get_tracer("my-module")
 
 # ✅ NEW — using microsoft-opentelemetry distro
-from opentelemetry.sdk.resources import Resource
-
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 from microsoft.opentelemetry.a365.core import (
     AgentDetails,
@@ -391,11 +269,10 @@ from microsoft.opentelemetry.a365.core import (
 
 use_microsoft_opentelemetry(
     enable_a365=True,
-    resource=Resource.create({
-        "service.name": "my-agent",
-        "service.namespace": "my-ns",
-    }),
     a365_token_resolver=my_resolver,
+    a365_tenant_id="my-tenant",
+    a365_agent_id="my-agent",
+    a365_cluster_category="prod",
 )
 # LangChain auto-instrumented — no manual setup needed
 

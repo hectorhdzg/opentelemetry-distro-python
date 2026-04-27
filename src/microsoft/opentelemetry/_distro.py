@@ -66,7 +66,7 @@ from microsoft.opentelemetry._utils import (
 _logger = getLogger(__name__)
 
 
-def use_microsoft_opentelemetry(**kwargs: object) -> None: # pylint: disable=too-many-statements
+def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=too-many-statements
     """Configure OpenTelemetry with optional Azure Monitor support.
 
     This function sets up the OpenTelemetry global providers
@@ -282,15 +282,16 @@ def _append_a365_components(
     if not enable_a365:
         return
 
+    disable_tracing = otel_kwargs.get(DISABLE_TRACING_ARG, False)
+    if disable_tracing:
+        return
+
     # Tell scope classes that telemetry is enabled without env vars.
     # The standalone SDK gates on ENABLE_OBSERVABILITY / ENABLE_A365_OBSERVABILITY
     # env vars, but when the distro is told enable_a365=True that's sufficient.
     from microsoft.opentelemetry.a365.core.opentelemetry_scope import OpenTelemetryScope
-    OpenTelemetryScope._enabled_by_distro = True
 
-    disable_tracing = otel_kwargs.get(DISABLE_TRACING_ARG, False)
-    if disable_tracing:
-        return
+    OpenTelemetryScope._enabled_by_distro = True
 
     from microsoft.opentelemetry.a365.constants import (
         A365_CLUSTER_CATEGORY_ENV,
