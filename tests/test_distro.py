@@ -428,7 +428,7 @@ class TestA365KwargsConfiguration(unittest.TestCase):
         processors = otel_kwargs["span_processors"]
         self.assertEqual(len(processors), 2)
 
-        baggage_proc = processors[1]
+        baggage_proc = processors[0]
         self.assertIsNone(baggage_proc._tenant_id)
         self.assertIsNone(baggage_proc._agent_id)
 
@@ -437,6 +437,50 @@ class TestA365KwargsConfiguration(unittest.TestCase):
         otel_kwargs = {"span_processors": []}
         _append_a365_components(False, otel_kwargs)
         self.assertEqual(otel_kwargs["span_processors"], [])
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils.is_agent365_exporter_enabled", return_value=False)
+    def test_baggage_processor_registered_when_exporter_disabled(self, enabled_mock):
+        """A365SpanProcessor is registered even when ENABLE_A365_OBSERVABILITY_EXPORTER=false."""
+        from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
+
+        otel_kwargs = {"span_processors": []}
+        _append_a365_components(True, otel_kwargs)
+
+        processors = otel_kwargs["span_processors"]
+        self.assertEqual(len(processors), 1)
+        self.assertIsInstance(processors[0], A365SpanProcessor)
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
+    @patch("microsoft.opentelemetry.a365.core.exporters.utils._create_default_token_resolver")
+    def test_exporter_registered_when_a365_enabled_and_env_true(
+        self, default_resolver_mock, enabled_mock
+    ):
+        """When enable_a365=True and ENABLE_A365_OBSERVABILITY_EXPORTER=true, the
+        Agent365 exporter span processor is added alongside A365SpanProcessor."""
+        default_resolver_mock.return_value = lambda aid, tid: "token"
+        from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
+
+        otel_kwargs = {"span_processors": []}
+        _append_a365_components(True, otel_kwargs)
+
+        processors = otel_kwargs["span_processors"]
+        # Two processors: A365SpanProcessor + Agent365 exporter processor
+        self.assertEqual(len(processors), 2)
+        self.assertIsInstance(processors[0], A365SpanProcessor)
+
+    def test_baggage_processor_registered_when_exporter_env_unset(self):
+        """When enable_a365=True and ENABLE_A365_OBSERVABILITY_EXPORTER is unset,
+        only the A365SpanProcessor is registered (no exporter processor)."""
+        from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
+
+        env = {k: v for k, v in os.environ.items() if k != "ENABLE_A365_OBSERVABILITY_EXPORTER"}
+        with patch.dict("os.environ", env, clear=True):
+            otel_kwargs = {"span_processors": []}
+            _append_a365_components(True, otel_kwargs)
+
+        processors = otel_kwargs["span_processors"]
+        self.assertEqual(len(processors), 1)
+        self.assertIsInstance(processors[0], A365SpanProcessor)
 
     @patch("microsoft.opentelemetry.a365.core.exporters.utils.is_agent365_exporter_enabled", return_value=True)
     @patch("microsoft.opentelemetry.a365.core.exporters.utils._create_default_token_resolver")

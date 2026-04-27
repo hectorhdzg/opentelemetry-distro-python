@@ -303,6 +303,15 @@ def _append_a365_components(
     )
 
     try:
+        # Baggage-to-span attribute propagation (gen_ai.agent.id,
+        # microsoft.tenant.id, user.name, etc.).  Always registered
+        # when enable_a365=True so enriched attributes appear on spans
+        # regardless of whether the A365 exporter is active.
+        baggage_processor = A365SpanProcessor()
+
+        otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
+
         # Resolve configuration: kwargs > env vars > defaults
         resolved_token_resolver = token_resolver or _create_default_token_resolver()
         resolved_cluster_category = cluster_category or os.environ.get(A365_CLUSTER_CATEGORY_ENV, "prod")
@@ -333,13 +342,7 @@ def _append_a365_components(
             suppress_invoke_agent_input=resolved_suppress_input,
         )
 
-        # Baggage-to-span attribute propagation. Tenant/agent IDs are
-        # supplied per-request via BaggageBuilder / AgentDetails.
-        baggage_processor = A365SpanProcessor()
-
-        otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
         otel_kwargs[SPAN_PROCESSORS_ARG].append(batch_processor)
-        otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
 
     except Exception:  # pylint: disable=broad-exception-caught
         _logger.exception("Failed to create A365 components.")
