@@ -38,7 +38,7 @@ def create_console_components(
     """
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
     from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
-    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor, ConsoleLogExporter
+    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor, ConsoleLogRecordExporter
 
     components = ConsoleHandlers()
 
@@ -49,6 +49,6 @@ def create_console_components(
         components.metric_reader = PeriodicExportingMetricReader(ConsoleMetricExporter())
 
     if enable_logs:
-        components.log_record_processor = SimpleLogRecordProcessor(ConsoleLogExporter())
+        components.log_record_processor = SimpleLogRecordProcessor(ConsoleLogRecordExporter())
 
     return components

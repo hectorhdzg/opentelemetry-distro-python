@@ -47,6 +47,7 @@ from microsoft.opentelemetry._constants import (
     RESOURCE_ARG,
     SPAN_PROCESSORS_ARG,
     VIEWS_ARG,
+    _A365_DISABLED_INSTRUMENTATIONS,
     _AZURE_MONITOR_KWARG_MAP,
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
     _SPECTRA_DEFAULT_GRPC_ENDPOINT,
@@ -65,7 +66,7 @@ from microsoft.opentelemetry._utils import (
 _logger = getLogger(__name__)
 
 
-def use_microsoft_opentelemetry(**kwargs: object) -> None:
+def use_microsoft_opentelemetry(**kwargs: object) -> None: # pylint: disable=too-many-statements
     """Configure OpenTelemetry with optional Azure Monitor support.
 
     This function sets up the OpenTelemetry global providers
@@ -164,6 +165,23 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:
     azure_monitor_kwargs: Dict[str, Any] = {
         _AZURE_MONITOR_KWARG_MAP[k]: v for k, v in kwargs.items() if k in _AZURE_MONITOR_KWARG_MAP
     }  # pylint: disable=line-too-long
+
+    # When A365 is enabled (and Azure Monitor is NOT enabled), disable
+    # web-framework / HTTP-client instrumentations by default.  The user can
+    # still override by explicitly setting
+    # ``instrumentation_options={"django": {"enabled": True}}``.
+    if enable_a365 and not enable_azure_monitor:
+        inst_opts = otel_kwargs.get(INSTRUMENTATION_OPTIONS_ARG) or {}
+        if not isinstance(inst_opts, dict):
+            _logger.error(
+                "%s must be a dict, got %s; ignoring user value and using defaults.",
+                INSTRUMENTATION_OPTIONS_ARG,
+                type(inst_opts).__name__,
+            )
+            inst_opts = {}
+        for lib in _A365_DISABLED_INSTRUMENTATIONS:
+            inst_opts.setdefault(lib, {}).setdefault("enabled", False)
+        otel_kwargs[INSTRUMENTATION_OPTIONS_ARG] = inst_opts
 
     # ---- OTLP exporters (append to user-supplied processors/readers) ----
     _append_otlp_components(otel_kwargs)

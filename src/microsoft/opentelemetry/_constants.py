@@ -44,6 +44,19 @@ _SUPPORTED_INSTRUMENTED_LIBRARIES = (
     "agent_framework",
 )
 
+# Libraries disabled by default when A365 is enabled (agent workloads
+# typically don't need web-framework / HTTP-client instrumentation).
+_A365_DISABLED_INSTRUMENTATIONS = (
+    "django",
+    "fastapi",
+    "flask",
+    "psycopg2",
+    "requests",
+    "urllib",
+    "urllib3",
+    "azure_sdk",
+)
+
 # --- Console Exporter Constants ---
 
 ENABLE_CONSOLE_ARG = "enable_console"

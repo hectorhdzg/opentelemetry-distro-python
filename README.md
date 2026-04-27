@@ -183,6 +183,8 @@ The distro automatically instruments the following libraries when they are insta
 | `openai` | GenAI |
 | `openai_agents` | GenAI |
 | `langchain` | GenAI |
+| `semantic_kernel` | GenAI |
+| `agent_framework` | GenAI |
 | `azure_sdk` | Azure (enabled when Azure Monitor is active) |
 
 Individual instrumentations can be toggled via the `instrumentation_options` kwarg:
@@ -195,6 +197,46 @@ use_microsoft_opentelemetry(
     },
 )
 ```
+
+### Default Instrumentations When `enable_a365=True`
+
+The distro **automatically disables the
+following instrumentations by default** when `enable_a365=True`:
+
+| Library | Default with A365 |
+|---|---|
+| `django` | disabled |
+| `fastapi` | disabled |
+| `flask` | disabled |
+| `psycopg2` | disabled |
+| `requests` | disabled |
+| `urllib` | disabled |
+| `urllib3` | disabled |
+| `azure_sdk` | disabled |
+| `openai` | enabled |
+
+> **Note:** When both `enable_a365=True` and `enable_azure_monitor=True` are
+> set, the original (non-A365) defaults are used and the disabled libraries
+> above remain **enabled** so Azure Monitor continues to receive web/HTTP
+> telemetry.
+| `openai_agents` | enabled |
+| `langchain` | enabled |
+| `semantic_kernel` | enabled |
+| `agent_framework` | enabled |
+
+You can re-enable any of these explicitly via `instrumentation_options`:
+
+```python
+use_microsoft_opentelemetry(
+    enable_a365=True,
+    instrumentation_options={
+        "fastapi": {"enabled": True},     # opt back in to FastAPI
+    },
+)
+```
+
+When `enable_a365=False` (the default), all supported instrumentations
+remain enabled by default.
 
 
 
