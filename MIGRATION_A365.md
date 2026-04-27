@@ -237,12 +237,20 @@ configure(
     suppress_invoke_agent_input=True,
 )
 
-# ✅ NEW — distro entry point with kwargs
-# Set ENABLE_A365_OBSERVABILITY_EXPORTER=true in env
+# ✅ NEW — distro entry point with kwargs.
+# Set ENABLE_A365_OBSERVABILITY_EXPORTER=true in env.
+# `service.name` and `service.namespace` are set via an OTel Resource
+# (the old `service_name` / `service_namespace` configure() args).
+from opentelemetry.sdk.resources import Resource
+
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 
 use_microsoft_opentelemetry(
     enable_a365=True,
+    resource=Resource.create({
+        "service.name": "my-agent",
+        "service.namespace": "my-namespace",
+    }),
     a365_token_resolver=my_token_resolver,
     a365_cluster_category="prod",
     a365_use_s2s_endpoint=True,
@@ -250,12 +258,17 @@ use_microsoft_opentelemetry(
 )
 ```
 
+> **Note.** ``service.name`` and ``service.namespace`` can also be set via the
+> ``OTEL_SERVICE_NAME`` and ``OTEL_RESOURCE_ATTRIBUTES`` environment variables
+> (e.g. ``OTEL_RESOURCE_ATTRIBUTES="service.namespace=my-namespace"``). Use
+> a ``Resource`` when you want to express them in code.
+
 ### configure() Parameter Mapping
 
 | Old `configure()` parameter | New equivalent |
 |-----------------------------|----------------|
 | `service_name` | `OTEL_SERVICE_NAME` env var or `resource` kwarg |
-| `service_namespace` | `resource` kwarg with `SERVICE_NAMESPACE` attribute |
+| `service_namespace` | `resource` kwarg with `service.namespace` attribute |
 | `token_resolver` | `a365_token_resolver` kwarg |
 | `cluster_category` | `a365_cluster_category` kwarg or `A365_CLUSTER_CATEGORY` env var |
 | `exporter_options` | Individual kwargs or env vars (see below) |
@@ -324,6 +337,8 @@ CustomLangChainInstrumentor().instrument()
 tracer = get_tracer("my-module")
 
 # ✅ NEW — using microsoft-opentelemetry distro
+from opentelemetry.sdk.resources import Resource
+
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 from microsoft.opentelemetry.a365.core import (
     AgentDetails,
@@ -335,6 +350,10 @@ from microsoft.opentelemetry.a365.core import (
 
 use_microsoft_opentelemetry(
     enable_a365=True,
+    resource=Resource.create({
+        "service.name": "my-agent",
+        "service.namespace": "my-ns",
+    }),
     a365_token_resolver=my_resolver,
 )
 # LangChain auto-instrumented — no manual setup needed
