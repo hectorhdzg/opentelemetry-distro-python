@@ -342,7 +342,7 @@ remain enabled by default.
 
 | Old env var | New env var | Notes |
 |-------------|-------------|-------|
-| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `ENABLE_A365_OBSERVABILITY_EXPORTER` | Same — enables A365 HTTP exporter. Set to `false` with `enable_a365=True` to get enriched span attributes without exporting to A365. |
+| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `ENABLE_A365_OBSERVABILITY_EXPORTER` | Same — enables A365 HTTP exporter |
 | `A365_CLUSTER_CATEGORY` | `A365_CLUSTER_CATEGORY` | Same — or use `a365_cluster_category` kwarg |
 | `A365_USE_S2S_ENDPOINT` | `A365_USE_S2S_ENDPOINT` | Same — or use `a365_use_s2s_endpoint` kwarg |
 | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | Same — or use `a365_suppress_invoke_agent_input` kwarg |

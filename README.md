@@ -144,7 +144,7 @@ When `enable_a365=True`, the distro adds A365 span processors to the tracing pip
 
 | Environment variable | Default | Description |
 |---|---|---|
-| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `false` | Enable the A365 HTTP exporter. When `false` with `enable_a365=True`, span enrichment attributes (e.g. `gen_ai.agent.id`, `microsoft.tenant.id`, `user.name`) are still added but no data is exported to the A365 endpoint. |
+| `ENABLE_A365_OBSERVABILITY_EXPORTER` | `false` | Enable the A365 HTTP exporter. Must be `true` (along with `enable_a365=True`) for telemetry to be exported to the A365 endpoint. Note: span enrichment attributes (e.g. `gen_ai.agent.id`, `microsoft.tenant.id`, `user.name`) are propagated from baggage to spans for *all* configured exporters. |
 | `A365_CLUSTER_CATEGORY` | `prod` | Cluster category for endpoint discovery (`prod`, `gov`, `dod`, `mooncake`). |
 | `A365_USE_S2S_ENDPOINT` | `false` | Use the S2S endpoint instead of the standard endpoint. |
 | `A365_SUPPRESS_INVOKE_AGENT_INPUT` | `false` | Strip input messages from InvokeAgent spans before export. |

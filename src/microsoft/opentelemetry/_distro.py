@@ -195,6 +195,13 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         insecure=spectra_insecure,
     )
 
+    # ---- Baggage-to-span attribute propagation ----
+    # Registered unconditionally so enriched baggage entries (gen_ai.agent.id,
+    # microsoft.tenant.id, user.name, etc.) propagate to spans for *any*
+    # active exporter (Azure Monitor, A365, OTLP, console), independent of
+    # ``enable_a365`` and ``ENABLE_A365_OBSERVABILITY_EXPORTER``.
+    _append_baggage_span_processor(otel_kwargs)
+
     # ---- A365 exporters (append span processors — traces only) ----
     _append_a365_components(
         enable_a365,
@@ -263,6 +270,28 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return val in ("true", "1", "yes", "on")
 
 
+def _append_baggage_span_processor(otel_kwargs: Dict[str, Any]) -> None:
+    """Register the baggage-to-span attribute processor unconditionally.
+
+    The processor copies documented baggage entries (e.g. ``gen_ai.agent.id``,
+    ``microsoft.tenant.id``, ``user.name``) onto every started span so that
+    enriched attributes appear regardless of which exporter is active —
+    Azure Monitor, A365, OTLP, or the console exporter — and regardless of
+    whether ``enable_a365`` is True or ``ENABLE_A365_OBSERVABILITY_EXPORTER``
+    is set.
+    """
+    if otel_kwargs.get(DISABLE_TRACING_ARG, False):
+        return
+
+    try:
+        from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
+
+        otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
+        otel_kwargs[SPAN_PROCESSORS_ARG].append(A365SpanProcessor())
+    except Exception:  # pylint: disable=broad-exception-caught
+        _logger.exception("Failed to register baggage span processor.")
+
+
 def _append_a365_components(
     enable_a365: bool,
     otel_kwargs: Dict[str, Any],
@@ -302,20 +331,12 @@ def _append_a365_components(
     from microsoft.opentelemetry.a365.core.exporters.enriching_span_processor import (
         _EnrichingBatchSpanProcessor,
     )
-    from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
     from microsoft.opentelemetry.a365.core.exporters.utils import (
         _create_default_token_resolver,
     )
 
     try:
-        # Baggage-to-span attribute propagation (gen_ai.agent.id,
-        # microsoft.tenant.id, user.name, etc.).  Always registered
-        # when enable_a365=True so enriched attributes appear on spans
-        # regardless of whether the A365 exporter is active.
-        baggage_processor = A365SpanProcessor()
-
         otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
-        otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
 
         # Resolve configuration: kwargs > env vars > defaults
         resolved_token_resolver = token_resolver or _create_default_token_resolver()
