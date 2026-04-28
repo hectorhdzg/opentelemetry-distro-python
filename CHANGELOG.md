@@ -1,6 +1,6 @@
 # Release History
 
-## Unreleased
+## 0.1.0b2 (2026-04-28)
 
 ### Bugs Fixed
 - Ensure baggage properties propagate to child spans for all exporters
