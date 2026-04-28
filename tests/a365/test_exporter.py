@@ -62,6 +62,14 @@ class TestAgent365ExporterInit(unittest.TestCase):
         with self.assertRaises(ValueError):
             _Agent365Exporter(token_resolver=None)
 
+    def test_raises_on_zero_max_payload_bytes(self):
+        with self.assertRaises(ValueError):
+            _Agent365Exporter(token_resolver=lambda a, t: "token", max_payload_bytes=0)
+
+    def test_raises_on_negative_max_payload_bytes(self):
+        with self.assertRaises(ValueError):
+            _Agent365Exporter(token_resolver=lambda a, t: "token", max_payload_bytes=-1)
+
     def test_creates_with_valid_resolver(self):
         exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
         self.assertIsNotNone(exporter)
@@ -158,7 +166,9 @@ class TestAgent365ExporterBuildRequest(unittest.TestCase):
     def test_build_export_request_structure(self):
         exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
         span = _make_span()
-        payload = exporter._build_export_request([span])
+        mapped_spans = exporter._map_and_truncate_spans([span])
+        resource_attrs = exporter._get_resource_attributes([span])
+        payload = exporter._build_envelope(mapped_spans, resource_attrs)
         self.assertIn("resourceSpans", payload)
         resource_spans = payload["resourceSpans"]
         self.assertEqual(len(resource_spans), 1)

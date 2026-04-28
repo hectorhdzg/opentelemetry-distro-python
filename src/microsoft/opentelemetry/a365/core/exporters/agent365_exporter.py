@@ -24,7 +24,10 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from opentelemetry.trace import StatusCode
 
 from microsoft.opentelemetry.a365.core.exporters.utils import (
+    DEFAULT_MAX_PAYLOAD_BYTES,
     build_export_url,
+    chunk_by_size,
+    estimate_span_bytes,
     get_validated_domain_override,
     hex_span_id,
     hex_trace_id,
@@ -61,15 +64,19 @@ class _Agent365Exporter(SpanExporter):
         token_resolver: Callable[[str, str], str | None],
         cluster_category: str = "prod",
         use_s2s_endpoint: bool = False,
+        max_payload_bytes: int = DEFAULT_MAX_PAYLOAD_BYTES,
     ):
         if token_resolver is None:
             raise ValueError("token_resolver must be provided.")
+        if max_payload_bytes <= 0:
+            raise ValueError(f"max_payload_bytes must be positive, got {max_payload_bytes}")
         self._session = requests.Session()
         self._closed = False
         self._lock = threading.Lock()
         self._token_resolver = token_resolver
         self._cluster_category = cluster_category
         self._use_s2s_endpoint = use_s2s_endpoint
+        self._max_payload_bytes = max_payload_bytes
         self._domain_override = get_validated_domain_override()
 
     # ------------- SpanExporter API -----------------
@@ -93,8 +100,23 @@ class _Agent365Exporter(SpanExporter):
 
             any_failure = False
             for (tenant_id, agent_id), activities in groups.items():
-                payload = self._build_export_request(activities)
-                body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+                # Map and truncate spans first, then chunk by estimated byte size
+                mapped_spans = self._map_and_truncate_spans(activities)
+                resource_attrs = self._get_resource_attributes(activities)
+                chunks = chunk_by_size(
+                    mapped_spans,
+                    lambda ms: estimate_span_bytes(ms[0]),
+                    self._max_payload_bytes,
+                )
+
+                if len(chunks) > 1:
+                    logger.debug(
+                        "Split %d spans into %d chunks for tenantId: %s, agentId: %s",
+                        len(activities),
+                        len(chunks),
+                        tenant_id,
+                        agent_id,
+                    )
 
                 endpoint = self._domain_override or DEFAULT_ENDPOINT_URL
                 url = build_export_url(endpoint, agent_id, tenant_id, self._use_s2s_endpoint)
@@ -130,9 +152,52 @@ class _Agent365Exporter(SpanExporter):
                     any_failure = True
                     continue
 
-                ok = self._post_with_retries(url, body, headers)
-                if not ok:
-                    any_failure = True
+                # Send each chunk (all-or-nothing: fail group on first chunk failure)
+                group_failed = False
+                for i, chunk in enumerate(chunks):
+                    payload = self._build_envelope(chunk, resource_attrs)
+                    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+                    body_bytes = len(body.encode("utf-8"))
+                    logger.debug(
+                        "Sending chunk %d of %d (%d spans, %d bytes)",
+                        i + 1,
+                        len(chunks),
+                        len(chunk),
+                        body_bytes,
+                    )
+                    # Defensive check: the estimator covers per-span content but not
+                    # envelope overhead (resource attributes, scope wrappers). Warn if
+                    # the assembled body exceeds the configured limit so operators can
+                    # observe estimator drift before the server starts rejecting requests.
+                    if body_bytes > self._max_payload_bytes:
+                        logger.warning(
+                            "Chunk %d of %d body size (%d bytes) exceeds max_payload_bytes (%d); "
+                            "estimator may be under-counting envelope overhead. "
+                            "Tenant: %s, agent: %s, spans: %d.",
+                            i + 1,
+                            len(chunks),
+                            body_bytes,
+                            self._max_payload_bytes,
+                            tenant_id,
+                            agent_id,
+                            len(chunk),
+                        )
+
+                    ok = self._post_with_retries(url, body, headers)
+                    if not ok:
+                        logger.error(
+                            "Chunk %d of %d failed for tenant %s, agent %s",
+                            i + 1,
+                            len(chunks),
+                            tenant_id,
+                            agent_id,
+                        )
+                        any_failure = True
+                        group_failed = True
+                        break
+
+                if group_failed:
+                    continue
 
             return SpanExportResult.FAILURE if any_failure else SpanExportResult.SUCCESS
 
@@ -222,26 +287,45 @@ class _Agent365Exporter(SpanExporter):
 
     # ------------- Payload mapping ------------------
 
-    def _build_export_request(self, spans: Sequence[ReadableSpan]) -> dict[str, Any]:
-        scope_map: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+    def _map_and_truncate_spans(self, spans: Sequence[ReadableSpan]) -> list[tuple[dict[str, Any], str, str | None]]:
+        """Map ReadableSpans to OTLP dicts and apply per-span truncation.
 
+        Returns a list of (mapped_span, scope_name, scope_version) tuples so
+        that envelope grouping by instrumentation scope can be performed
+        efficiently after byte-size chunking.
+        """
+        result: list[tuple[dict[str, Any], str, str | None]] = []
         for sp in spans:
             scope = sp.instrumentation_scope
-            scope_key = (scope.name, scope.version)
-            scope_map.setdefault(scope_key, []).append(self._map_span(sp))
+            scope_name = scope.name if scope is not None else "unknown"
+            scope_version = scope.version if scope is not None else None
+            result.append((self._map_span(sp), scope_name, scope_version))
+        return result
 
-        scope_spans: list[dict[str, Any]] = []
-        for (name, version), mapped_spans in scope_map.items():
-            scope_spans.append(
-                {
-                    "scope": {"name": name, "version": version},
-                    "spans": mapped_spans,
-                }
-            )
-
-        resource_attrs: dict[str, Any] = {}
+    @staticmethod
+    def _get_resource_attributes(spans: Sequence[ReadableSpan]) -> dict[str, Any]:
+        """Extract resource attributes from the first span in the batch."""
         if spans:
-            resource_attrs = dict(getattr(spans[0].resource, "attributes", {}) or {})
+            return dict(getattr(spans[0].resource, "attributes", {}) or {})
+        return {}
+
+    def _build_envelope(
+        self,
+        mapped_spans: Sequence[tuple[dict[str, Any], str, str | None]],
+        resource_attrs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Build an OTLP export request envelope from pre-mapped spans."""
+        scope_map: dict[tuple[str, str | None], list[dict[str, Any]]] = {}
+        for mapped_span, scope_name, scope_version in mapped_spans:
+            scope_map.setdefault((scope_name, scope_version), []).append(mapped_span)
+
+        scope_spans: list[dict[str, Any]] = [
+            {
+                "scope": {"name": name, "version": version},
+                "spans": spans,
+            }
+            for (name, version), spans in scope_map.items()
+        ]
 
         return {
             "resourceSpans": [
