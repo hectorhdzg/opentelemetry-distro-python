@@ -1,5 +1,29 @@
 # Release History
 
+## 1.0.0 (2026-04-30)
+
+### Features Added
+- GA release of the Microsoft OpenTelemetry Distro for Python
+- `use_microsoft_opentelemetry()` entry point for unified telemetry configuration
+- Azure Monitor export with connection-string-based configuration
+- OTLP export for traces, metrics, and logs
+- A365 observability exporter with baggage propagation and scope override support
+- GenAI instrumentations: OpenAI v2, OpenAI Agents SDK v2, LangChain (internal), Semantic Kernel, Microsoft Agent Framework
+- Console exporter for local development and debugging
+- SDK self-telemetry (sdkstats) for health and usage diagnostics
+- Auto-instrumentation support via OpenTelemetry distro entry point
+- Standard web-framework instrumentations (Django, FastAPI, Flask, requests, urllib, urllib3, psycopg2)
+- Environment-variable-based configuration for all supported options
+- Spectra Collector sidecar support with graceful fallback
+- Browser SDK Loader integration for Azure Monitor
+- Configurable instrumentation enablement via `instrumentation_options`
+
+### Breaking Changes
+- Package name is `microsoft-opentelemetry` (replaces all pre-release versions)
+- `enable_azure_monitor` is off by default
+- `tenant_id` and `agent_id` removed from configuration options
+- Web-framework/HTTP-client instrumentations disabled by default when A365 is enabled; GenAI instrumentations remain enabled
+
 ## 0.1.0b3 (2026-04-29)
 
 ### Features Added
