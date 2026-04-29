@@ -1,15 +1,21 @@
 # Release History
 
-## Unreleased
+## 0.1.0b3 (2026-04-29)
 
-## Bugs Fixed
+### Features Added
+- Add configuration options for the `ENABLE_A365_OBSERVABILITY_EXPORTER` and `A365_OBSERVABILITY_SCOPE_OVERRIDE` environment variables
+  ([#87](https://github.com/microsoft/opentelemetry-distro-python/pull/87))
+
+### Bugs Fixed
 - Reverted [#81](https://github.com/microsoft/opentelemetry-distro-python/pull/81): baggage propagation now requires `enable_a365=True` and respects `ENABLE_A365_OBSERVABILITY_EXPORTER` as before.
+  ([#85](https://github.com/microsoft/opentelemetry-distro-python/pull/85))
 
 ### Other Changes
 - Make `langchain-core` an optional dependency. The LangChain instrumentation
   is now installable via `pip install microsoft-opentelemetry[langchain]` and
   fails silently with a one-time warning when `langchain-core` is not
   installed.
+  ([#80](https://github.com/microsoft/opentelemetry-distro-python/pull/80))
 
 
 ## 0.1.0b2 (2026-04-28)
