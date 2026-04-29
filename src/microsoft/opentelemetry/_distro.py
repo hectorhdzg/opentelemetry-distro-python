@@ -37,6 +37,8 @@ from microsoft.opentelemetry._constants import (
     A365_CLUSTER_CATEGORY_ARG,
     A365_USE_S2S_ENDPOINT_ARG,
     A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG,
+    A365_ENABLE_OBSERVABILITY_EXPORTER_ARG,
+    A365_OBSERVABILITY_SCOPE_OVERRIDE_ARG,
     ENABLE_AZURE_MONITOR_ARG,
     ENABLE_CONSOLE_ARG,
     INSTRUMENTATION_OPTIONS_ARG,
@@ -125,6 +127,15 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     :keyword bool a365_suppress_invoke_agent_input:
         Strip input messages from InvokeAgent spans before export. Also read from
         ``A365_SUPPRESS_INVOKE_AGENT_INPUT`` env var. Defaults to False.
+    :keyword bool a365_enable_observability_exporter:
+        Enable the A365 HTTP observability exporter. Also read from
+        ``ENABLE_A365_OBSERVABILITY_EXPORTER`` env var. Defaults to False.
+        Has no effect unless ``enable_a365=True``.
+    :keyword str a365_observability_scope_override:
+        Override the authentication scope used when acquiring tokens for the
+        A365 observability service. Equivalent to setting the
+        ``A365_OBSERVABILITY_SCOPE_OVERRIDE`` environment variable. When provided,
+        this kwarg overrides the env var.
     :keyword bool enable_console:
         Enable console exporter for traces, metrics, and logs (development
         only).  Mirrors ``ExportTarget.Console`` from the .NET distro.
@@ -154,6 +165,8 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     a365_cluster_category = kwargs.pop(A365_CLUSTER_CATEGORY_ARG, None)
     a365_use_s2s_endpoint = kwargs.pop(A365_USE_S2S_ENDPOINT_ARG, None)
     a365_suppress_invoke_agent_input = kwargs.pop(A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG, None)
+    a365_enable_observability_exporter = kwargs.pop(A365_ENABLE_OBSERVABILITY_EXPORTER_ARG, None)
+    a365_observability_scope_override = kwargs.pop(A365_OBSERVABILITY_SCOPE_OVERRIDE_ARG, None)
 
     enable_spectra: bool = bool(kwargs.pop(ENABLE_SPECTRA_ARG, False))
     spectra_endpoint = kwargs.pop(SPECTRA_ENDPOINT_ARG, None)
@@ -203,6 +216,8 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         cluster_category=a365_cluster_category,
         use_s2s_endpoint=a365_use_s2s_endpoint,
         suppress_invoke_agent_input=a365_suppress_invoke_agent_input,
+        enable_observability_exporter=a365_enable_observability_exporter,
+        observability_scope_override=a365_observability_scope_override,
     )
 
     # ---- Console exporters (dev-only, mirrors ExportTarget.Console) ----
@@ -270,6 +285,8 @@ def _append_a365_components(
     cluster_category: Any = None,
     use_s2s_endpoint: Any = None,
     suppress_invoke_agent_input: Any = None,
+    enable_observability_exporter: Any = None,
+    observability_scope_override: Any = None,
 ) -> None:
     """Build and append Agent365 span processors to ``otel_kwargs``.
 
@@ -295,6 +312,7 @@ def _append_a365_components(
 
     from microsoft.opentelemetry.a365.constants import (
         A365_CLUSTER_CATEGORY_ENV,
+        A365_OBSERVABILITY_SCOPE_OVERRIDE_ENV,
         A365_USE_S2S_ENDPOINT_ENV,
         A365_SUPPRESS_INVOKE_AGENT_INPUT_ENV,
         ENABLE_A365_OBSERVABILITY_EXPORTER,
@@ -306,7 +324,6 @@ def _append_a365_components(
     from microsoft.opentelemetry.a365.core.exporters.span_processor import A365SpanProcessor
     from microsoft.opentelemetry.a365.core.exporters.utils import (
         _create_default_token_resolver,
-        is_agent365_exporter_enabled,
     )
 
     try:
@@ -320,7 +337,6 @@ def _append_a365_components(
         otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
 
         # Resolve configuration: kwargs > env vars > defaults
-        resolved_token_resolver = token_resolver or _create_default_token_resolver()
         resolved_cluster_category = cluster_category or os.environ.get(A365_CLUSTER_CATEGORY_ENV, "prod")
         resolved_use_s2s = use_s2s_endpoint if use_s2s_endpoint is not None else _env_bool(A365_USE_S2S_ENDPOINT_ENV)
         resolved_suppress_input = (
@@ -328,14 +344,25 @@ def _append_a365_components(
             if suppress_invoke_agent_input is not None
             else _env_bool(A365_SUPPRESS_INVOKE_AGENT_INPUT_ENV)
         )
+        resolved_enable_exporter = bool(enable_observability_exporter) or _env_bool(
+            ENABLE_A365_OBSERVABILITY_EXPORTER, default=False
+        )
+        resolved_scope_override = (
+            observability_scope_override
+            if observability_scope_override is not None
+            else os.environ.get(A365_OBSERVABILITY_SCOPE_OVERRIDE_ENV)
+        )
 
-        # Build the exporter (A365 HTTP or skip if not enabled)
-        if not is_agent365_exporter_enabled() or resolved_token_resolver is None:
-            _logger.warning(
-                "%s not set or token_resolver not provided. A365 exporter will not be active.",
-                ENABLE_A365_OBSERVABILITY_EXPORTER,
+        if not resolved_enable_exporter:
+            _logger.info(
+                "A365 observability exporter not enabled (set ``a365_enable_observability_exporter=True`` "
+                "or ``ENABLE_A365_OBSERVABILITY_EXPORTER=true``); skipping."
             )
             return
+
+        resolved_token_resolver = token_resolver or _create_default_token_resolver(
+            scope_override=resolved_scope_override
+        )
 
         exporter = _Agent365Exporter(
             token_resolver=resolved_token_resolver,

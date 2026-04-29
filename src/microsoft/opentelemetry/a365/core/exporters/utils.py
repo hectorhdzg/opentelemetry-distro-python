@@ -377,7 +377,7 @@ def chunk_by_size(
 _A365_DEFAULT_SCOPE = "api://9b975845-388f-4429-889e-eab1ef63949c/Agent365.Observability.OtelWrite"
 
 
-def _create_fic_token_resolver() -> Callable[[str, str], Optional[str]]:
+def _create_fic_token_resolver(scope_override: Optional[str] = None) -> Callable[[str, str], Optional[str]]:
     """Create a token resolver using the FIC (Federated Identity Credential) flow.
 
     Uses MSAL's ``ConfidentialClientApplication`` with the ``fmi_path``
@@ -459,7 +459,7 @@ def _create_fic_token_resolver() -> Callable[[str, str], Optional[str]]:
 
             # Step 3: User FIC token for A365 observability scope
             result = instance_app.acquire_token_for_client(
-                scopes=[_A365_DEFAULT_SCOPE],
+                scopes=[scope_override or _A365_DEFAULT_SCOPE],
                 data={
                     "user_id": user_id,
                     "user_federated_identity_credential": instance_token,
@@ -486,7 +486,7 @@ def _create_fic_token_resolver() -> Callable[[str, str], Optional[str]]:
     return _resolve
 
 
-def _create_dac_token_resolver() -> Callable[[str, str], Optional[str]]:
+def _create_dac_token_resolver(scope_override: Optional[str] = None) -> Callable[[str, str], Optional[str]]:
     """Create a token resolver backed by ``DefaultAzureCredential``.
 
     The credential is lazily initialised on first call and cached for
@@ -494,6 +494,7 @@ def _create_dac_token_resolver() -> Callable[[str, str], Optional[str]]:
     """
     _credential = None
     _lock = threading.Lock()
+    scope = scope_override or _A365_DEFAULT_SCOPE
 
     def _resolve(_agent_id: str, _tenant_id: str) -> Optional[str]:
         nonlocal _credential
@@ -511,7 +512,7 @@ def _create_dac_token_resolver() -> Callable[[str, str], Optional[str]]:
                 _credential = DefaultAzureCredential()
 
         try:
-            token = _credential.get_token(_A365_DEFAULT_SCOPE)
+            token = _credential.get_token(scope)
             return token.token
         except Exception:
             logger.warning("Failed to acquire A365 token via DefaultAzureCredential.", exc_info=True)
@@ -520,7 +521,9 @@ def _create_dac_token_resolver() -> Callable[[str, str], Optional[str]]:
     return _resolve
 
 
-def _create_default_token_resolver() -> Callable[[str, str], Optional[str]]:
+def _create_default_token_resolver(
+    scope_override: Optional[str] = None,
+) -> Callable[[str, str], Optional[str]]:
     """Create the default token resolver.
 
     Tries FIC first (if the required env vars are set), otherwise
@@ -537,9 +540,9 @@ def _create_default_token_resolver() -> Callable[[str, str], Optional[str]]:
 
     if fic_available:
         logger.info("FIC env vars detected \u2014 using FIC token resolver for A365.")
-        return _create_fic_token_resolver()
+        return _create_fic_token_resolver(scope_override=scope_override)
     logger.info("FIC env vars not set \u2014 falling back to DefaultAzureCredential for A365.")
-    return _create_dac_token_resolver()
+    return _create_dac_token_resolver(scope_override=scope_override)
 
 
 @dataclass

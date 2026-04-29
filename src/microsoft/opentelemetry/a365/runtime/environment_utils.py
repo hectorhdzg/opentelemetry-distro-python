@@ -7,6 +7,8 @@ Utility logic for environment-related operations.
 
 import os
 
+from microsoft.opentelemetry.a365.constants import A365_OBSERVABILITY_SCOPE_OVERRIDE_ENV
+
 # Authentication scopes for different environments
 PROD_OBSERVABILITY_SCOPE = "api://9b975845-388f-4429-889e-eab1ef63949c/Agent365.Observability.OtelWrite"
 
@@ -29,7 +31,7 @@ def get_observability_authentication_scope() -> list[str]:
     Returns:
         list[str]: The authentication scope for the current environment.
     """
-    override_scope = os.getenv("A365_OBSERVABILITY_SCOPE_OVERRIDE", "").strip()
+    override_scope = os.getenv(A365_OBSERVABILITY_SCOPE_OVERRIDE_ENV, "").strip()
     return [override_scope] if override_scope else [PROD_OBSERVABILITY_SCOPE]
 
 

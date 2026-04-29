@@ -255,6 +255,8 @@ use_microsoft_opentelemetry(
     a365_cluster_category="prod",
     a365_use_s2s_endpoint=True,
     a365_suppress_invoke_agent_input=True,
+    a365_enable_observability_exporter=True,
+    a365_observability_scope_override="api://<app-id>/.default",
 )
 ```
 
@@ -273,6 +275,8 @@ use_microsoft_opentelemetry(
 | `cluster_category` | `a365_cluster_category` kwarg or `A365_CLUSTER_CATEGORY` env var |
 | `exporter_options` | Individual kwargs or env vars (see below) |
 | `suppress_invoke_agent_input` | `a365_suppress_invoke_agent_input` kwarg or `A365_SUPPRESS_INVOKE_AGENT_INPUT` env var |
+| _(env var only previously)_ `ENABLE_A365_OBSERVABILITY_EXPORTER` | `a365_enable_observability_exporter` kwarg or `ENABLE_A365_OBSERVABILITY_EXPORTER` env var |
+| _(env var only previously)_ `A365_OBSERVABILITY_SCOPE_OVERRIDE` | `a365_observability_scope_override` kwarg or `A365_OBSERVABILITY_SCOPE_OVERRIDE` env var |
 
 ### Spectra Sidecar → OTLP
 
