@@ -42,6 +42,8 @@ dependencies = [
     "opentelemetry-resource-detector-azure<1.0.0,>=0.1.5",
     "wrapt>=1.0",
     "opentelemetry-util-genai>=0.3b0",
+    "microsoft-agents-activity>=0.9.0",
+    "microsoft-agents-hosting-core>=0.9.0",
     "aiohttp>=3.8.0",
     "PyJWT",
     "requests"
@@ -53,8 +55,6 @@ langchain = [
 ]
 agent-framework = [
     "agent-framework>=1.0.0",
-    "microsoft-agents-activity>=0.9.0",
-    "microsoft-agents-hosting-core>=0.9.0",
 ]
 test = [
     "pytest>=8.0",
