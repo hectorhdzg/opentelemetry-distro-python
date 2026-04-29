@@ -20,8 +20,9 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
     """Instruments Agent Framework with OpenTelemetry observability.
 
     Automatically calls ``agent_framework.observability.enable_instrumentation()``
-    so the Agent Framework SDK emits OpenTelemetry spans.  When A365 export is
-    active, also registers a span enricher for attribute normalization.
+    so the Agent Framework SDK emits OpenTelemetry spans. When the A365 span
+    enricher pipeline is available, also registers a span enricher for
+    attribute normalization.
     """
 
     _processor: AgentFrameworkSpanProcessor | None = None
@@ -39,10 +40,11 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
 
             enable_instrumentation()
             self._af_instrumentation_enabled = True
-        except ImportError:
+        except ImportError as exc:
             _logger.debug(
-                "agent_framework package is not installed. "
-                + "Skipping Agent Framework SDK instrumentation enablement."
+                "Failed to import Agent Framework SDK instrumentation components. "
+                + "Skipping Agent Framework SDK instrumentation enablement.",
+                exc_info=exc,
             )
 
         provider = kwargs.get("tracer_provider") or get_tracer_provider()
