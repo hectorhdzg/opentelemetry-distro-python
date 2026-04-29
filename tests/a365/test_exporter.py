@@ -19,13 +19,17 @@ def _make_span(
     name="test_span",
     trace_id=0x1234,
     span_id=0x5678,
+    operation_name="invoke_agent",
 ):
     span = MagicMock()
     span.name = name
-    span.attributes = {
+    attrs = {
         "microsoft.tenant.id": tenant_id,
         "gen_ai.agent.id": agent_id,
     }
+    if operation_name is not None:
+        attrs["gen_ai.operation.name"] = operation_name
+    span.attributes = attrs
 
     ctx = MagicMock()
     ctx.trace_id = trace_id
@@ -219,6 +223,100 @@ class TestAgent365ExporterS2S(unittest.TestCase):
         exporter.export([span])
         url_arg = mock_post.call_args[0][0]
         self.assertIn("/observabilityService/", url_arg)
+        exporter.shutdown()
+
+
+class TestAgent365ExporterFiltering(unittest.TestCase):
+    @patch.dict(os.environ, {}, clear=True)
+    def test_export_no_eligible_spans_logs_info(self):
+        exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
+        span = MagicMock()
+        span.attributes = {}
+        with patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter.logger") as mock_logger:
+            result = exporter.export([span])
+        self.assertEqual(result, SpanExportResult.SUCCESS)
+        mock_logger.info.assert_called_with("No eligible genAI spans to export; nothing exported.")
+        exporter.shutdown()
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch.dict(os.environ, {}, clear=True)
+    def test_export_filters_out_non_genai_spans(self, mock_post):
+        """Spans without a known gen_ai.operation.name are filtered out."""
+        mock_post.return_value = True
+        exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
+        genai_span = _make_span(name="genai_span", trace_id=1, span_id=2)
+        no_op_span = _make_span(name="http_span", trace_id=3, span_id=4, operation_name=None)
+        unknown_op_span = _make_span(name="db_span", trace_id=5, span_id=6, operation_name="some_random_op")
+
+        result = exporter.export([genai_span, no_op_span, unknown_op_span])
+
+        self.assertEqual(result, SpanExportResult.SUCCESS)
+        mock_post.assert_called_once()
+        exporter.shutdown()
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch.dict(os.environ, {}, clear=True)
+    def test_export_filters_out_only_non_genai_spans_returns_success(self, mock_post):
+        """When all spans are filtered out, export returns SUCCESS without HTTP call."""
+        mock_post.return_value = True
+        exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
+        spans = [
+            _make_span(name="http_span", operation_name=None),
+            _make_span(name="db_span", operation_name="other"),
+        ]
+
+        result = exporter.export(spans)
+
+        self.assertEqual(result, SpanExportResult.SUCCESS)
+        mock_post.assert_not_called()
+        exporter.shutdown()
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch.dict(os.environ, {}, clear=True)
+    def test_export_includes_inference_operation_type_chat_spans(self, mock_post):
+        """Spans with InferenceOperationType.CHAT value ('Chat') are kept without normalization."""
+        mock_post.return_value = True
+        exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
+        chat_span = _make_span(name="chat_span", trace_id=1, span_id=2, operation_name="Chat")
+
+        result = exporter.export([chat_span])
+
+        self.assertEqual(result, SpanExportResult.SUCCESS)
+        mock_post.assert_called_once()
+        exporter.shutdown()
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch.dict(os.environ, {}, clear=True)
+    def test_export_filters_out_unsupported_inference_operation_types(self, mock_post):
+        """Spans with TextCompletion / GenerateContent are filtered out."""
+        mock_post.return_value = True
+        exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
+        text_completion_span = _make_span(
+            name="text_completion_span", trace_id=3, span_id=4, operation_name="TextCompletion"
+        )
+        generate_content_span = _make_span(
+            name="generate_content_span", trace_id=5, span_id=6, operation_name="GenerateContent"
+        )
+
+        result = exporter.export([text_completion_span, generate_content_span])
+
+        self.assertEqual(result, SpanExportResult.SUCCESS)
+        mock_post.assert_not_called()
+        exporter.shutdown()
+
+    @patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter._post_with_retries")
+    @patch.dict(os.environ, {}, clear=True)
+    def test_export_does_not_normalize_canonical_operation_names(self, mock_post):
+        """invoke_agent / execute_tool / output_messages / chat are not rewritten."""
+        mock_post.return_value = True
+        exporter = _Agent365Exporter(token_resolver=lambda a, t: "token")
+        for op in ("invoke_agent", "execute_tool", "output_messages", "chat"):
+            with self.subTest(operation_name=op):
+                mock_post.reset_mock()
+                span = _make_span(name=f"{op}_span", trace_id=1, span_id=2, operation_name=op)
+                result = exporter.export([span])
+                self.assertEqual(result, SpanExportResult.SUCCESS)
+                mock_post.assert_called_once()
         exporter.shutdown()
 
 

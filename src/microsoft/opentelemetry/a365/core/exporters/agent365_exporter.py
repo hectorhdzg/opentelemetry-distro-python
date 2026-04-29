@@ -33,7 +33,7 @@ from microsoft.opentelemetry.a365.core.exporters.utils import (
     hex_trace_id,
     kind_name,
     parse_retry_after,
-    partition_by_identity,
+    filter_and_partition_by_identity,
     status_name,
     truncate_span,
 )
@@ -86,9 +86,10 @@ class _Agent365Exporter(SpanExporter):
             return SpanExportResult.FAILURE
 
         try:
-            groups = partition_by_identity(spans)
+            groups = filter_and_partition_by_identity(spans)
             if not groups:
-                logger.info("No spans with tenant/agent identity found; nothing exported.")
+                # No eligible genAI spans to export after filtering/partitioning; treat as success
+                logger.info("No eligible genAI spans to export; nothing exported.")
                 return SpanExportResult.SUCCESS
 
             total_spans = sum(len(activities) for activities in groups.values())
