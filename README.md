@@ -69,7 +69,7 @@ use_microsoft_opentelemetry(
 )
 ```
 
-See the [A365 guide](docs/A365_DOCUMENTATION.md) for A365-specific configuration.
+See the [A365 guide](A365_DOCUMENTATION.md) for A365-specific configuration.
 
 ---
 
@@ -115,7 +115,7 @@ See the [A365 guide](docs/A365_DOCUMENTATION.md) for A365-specific configuration
 | `a365_exporter_timeout_ms` | `int` | `30000` | Timeout for a single A365 export operation (ms). |
 | `a365_max_export_batch_size` | `int` | `512` | Maximum batch size for a single A365 export operation. |
 
-> For A365 token resolver patterns, baggage, and scope classes, see the [A365 guide](docs/A365_DOCUMENTATION.md).
+> For A365 token resolver patterns, baggage, and scope classes, see the [A365 guide](A365_DOCUMENTATION.md).
 
 ### Sampling
 
@@ -295,15 +295,17 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-For A365-specific issues, see the [A365 guide](docs/A365_DOCUMENTATION.md) and the [official troubleshooting docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/troubleshooting).
+For A365-specific issues, see the [A365 guide](A365_DOCUMENTATION.md) and the [official troubleshooting docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/troubleshooting).
+
+For the official Microsoft OpenTelemetry SDK documentation, see [Microsoft OpenTelemetry on Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/microsoft-opentelemetry?tabs=python).
 
 The Azure Monitor exporter raises exceptions defined in [Azure Core](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/core/azure-core/README.md#azure-core-library-exceptions).
 
 ## Next Steps
 
-- [Agent 365 Observability guide](docs/A365_DOCUMENTATION.md)
+- [Agent 365 Observability guide](A365_DOCUMENTATION.md)
 - [Azure Monitor OpenTelemetry docs](https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-enable?tabs=python)
-- [A365 observability docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/observability?tabs=python)
+- [Microsoft OpenTelemetry SDK docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/microsoft-opentelemetry?tabs=python)
 - [OpenTelemetry Python docs](https://opentelemetry.io/docs/instrumentation/python/)
 - [Samples](./samples/)
 
