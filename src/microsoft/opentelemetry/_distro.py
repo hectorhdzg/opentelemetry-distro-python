@@ -64,12 +64,25 @@ from microsoft.opentelemetry._constants import (
 )
 from microsoft.opentelemetry._instrumentation import get_dist_dependency_conflicts
 from microsoft.opentelemetry._otlp import is_otlp_enabled
+from microsoft.opentelemetry._sdkstats._state import (
+    SdkStatsFeature,
+    get_sdkstats_feature_flags,
+    get_sdkstats_instrumentation_flags,
+    is_sdkstats_enabled,
+    set_sdkstats_feature,
+    set_sdkstats_instrumentation_by_name,
+)
 from microsoft.opentelemetry._utils import (
     _append_azure_monitor_components,
     _append_console_components,
     _append_otlp_components,
 )
 from microsoft.opentelemetry._version import VERSION
+
+import azure.monitor.opentelemetry.exporter._utils as _exporter_utils
+from azure.monitor.opentelemetry.exporter.statsbeat._statsbeat_metrics import (
+    _StatsbeatMetrics,
+)
 
 _logger = getLogger(__name__)
 
@@ -177,7 +190,7 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     """
 
     os.environ[MICROSOFT_OPENTELEMETRY_VERSION_ENV] = VERSION
-    enable_azure_monitor = kwargs.pop(ENABLE_AZURE_MONITOR_ARG, False)
+    enable_azure_monitor: bool = bool(kwargs.pop(ENABLE_AZURE_MONITOR_ARG, False))
     enable_console: bool = bool(kwargs.pop(ENABLE_CONSOLE_ARG, False))
     enable_a365: bool = bool(kwargs.pop(ENABLE_A365_ARG, False))
     a365_token_resolver = kwargs.pop(A365_TOKEN_RESOLVER_ARG, None)
@@ -219,8 +232,13 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
             inst_opts.setdefault(lib, {}).setdefault("enabled", False)
         otel_kwargs[INSTRUMENTATION_OPTIONS_ARG] = inst_opts
 
+    # ---- SDKStats: record distro feature flag ----
+    set_sdkstats_feature(SdkStatsFeature.DISTRO)
+
     # ---- OTLP exporters (append to user-supplied processors/readers) ----
     _append_otlp_components(otel_kwargs)
+    if is_otlp_enabled():
+        set_sdkstats_feature(SdkStatsFeature.OTLP_EXPORT)
 
     # ---- Spectra sidecar exporter (OTLP gRPC/HTTP to localhost) ----
     _append_spectra_components(
@@ -252,6 +270,8 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     if not enable_console and not enable_azure_monitor and not enable_a365 and not is_otlp_enabled():
         enable_console = True
     _append_console_components(otel_kwargs, enable_console)
+    if enable_console:
+        set_sdkstats_feature(SdkStatsFeature.CONSOLE_EXPORT)
 
     # ---- Build and register providers ----
     tracer_provider: Optional[TracerProvider] = None
@@ -293,6 +313,9 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     # ---- Instrumentations (always, after providers are set) ----
     _setup_instrumentations(otel_kwargs)
 
+    # ---- SDKStats manager (after providers, before returning) ----
+    _initialize_sdkstats(enable_azure_monitor)
+
     if enable_azure_monitor:
         _logger.info("Azure Monitor enabled.")
 
@@ -303,6 +326,52 @@ def _env_bool(name: str, default: bool = False) -> bool:
     if not val:
         return default
     return val in ("true", "1", "yes", "on")
+
+
+def _initialize_sdkstats(enable_azure_monitor: bool) -> None:
+    """Set up SDKStats — always sends to the Application Insights statsbeat endpoint.
+
+    When Azure Monitor is active the exporter package's own StatsbeatManager
+    handles everything and we bridge our distro-level feature/instrumentation
+    bits into its state so it reports the full picture.  For A365-only,
+    OTLP-only, or Console-only customers this function creates a standalone
+    pipeline using ``AzureMonitorMetricExporter(is_sdkstats=True)`` pointed
+    at the well-known statsbeat ingestion endpoint.  The customer's telemetry
+    pipeline is not affected.
+    """
+    if not is_sdkstats_enabled():
+        return
+
+    if enable_azure_monitor:
+        # The exporter package runs its own statsbeat.  Bridge our
+        # distro-level feature bits (A365_EXPORT, OTLP_EXPORT, etc.)
+        # and instrumentation bits into the exporter's state so they
+        # appear in the same observation.  Our bit values (128+) do
+        # not collide with the exporter's (1–64).
+        _bridge_sdkstats_to_azure_monitor()
+        return
+
+    from microsoft.opentelemetry._sdkstats._manager import SdkStatsManager
+
+    manager = SdkStatsManager()
+    manager.initialize()
+
+
+def _bridge_sdkstats_to_azure_monitor() -> None:
+    """OR distro feature/instrumentation bits into the exporter's statsbeat."""
+    # Feature bits — OR our flags into the class-level dict that the
+    # exporter's _get_feature_metric callback reads each cycle.
+    feature_flags = get_sdkstats_feature_flags()
+    if feature_flags:
+        current = _StatsbeatMetrics._FEATURE_ATTRIBUTES.get("feature") or 0
+        _StatsbeatMetrics._FEATURE_ATTRIBUTES["feature"] = current | feature_flags
+
+    # Instrumentation bits — OR directly into the exporter's module-
+    # level bitmask (thread-safe via their lock).
+    instrumentation_flags = get_sdkstats_instrumentation_flags()
+    if instrumentation_flags:
+        with _exporter_utils._INSTRUMENTATIONS_BIT_MASK_LOCK:
+            _exporter_utils._INSTRUMENTATIONS_BIT_MASK |= instrumentation_flags
 
 
 def _append_a365_components(
@@ -366,6 +435,8 @@ def _append_a365_components(
 
         otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
         otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
+
+        set_sdkstats_feature(SdkStatsFeature.A365_EXPORT)
 
         # Resolve configuration: kwargs > env vars > defaults
         resolved_cluster_category = cluster_category or os.environ.get(A365_CLUSTER_CATEGORY_ENV, "prod")
@@ -448,6 +519,8 @@ def _append_spectra_components(
     """
     if not enable_spectra:
         return
+    
+    set_sdkstats_feature(SdkStatsFeature.SPECTRA_EXPORT)
 
     if otel_kwargs.get(DISABLE_TRACING_ARG, False):
         return
@@ -619,6 +692,7 @@ def _setup_instrumentations(otel_kwargs: Dict[str, Any]) -> None:
                 continue
             instrumentor: Any = entry_point.load()
             instrumentor().instrument(skip_dep_check=True)
+            set_sdkstats_instrumentation_by_name(lib_name)
         except Exception as ex:  # pylint: disable=broad-except
             _logger.warning(
                 "Exception occurred when instrumenting: %s.",
