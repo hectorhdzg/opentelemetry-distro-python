@@ -121,6 +121,34 @@ class TestUseMicrosoftOpenTelemetry(unittest.TestCase):
         self.assertNotIn("enable_azure_monitor", otel_kwargs)
         self.assertNotIn("enable_azure_monitor", azure_kwargs)
 
+    def test_microsoft_opentelemetry_version_env_var_set_for_azure_monitor(self):
+        from microsoft.opentelemetry._constants import MICROSOFT_OPENTELEMETRY_VERSION_ENV
+        from microsoft.opentelemetry._version import VERSION
+
+        captured: dict = {}
+
+        def _capture(_otel_kwargs, _azure_kwargs):
+            captured["env_value"] = os.environ.get(MICROSOFT_OPENTELEMETRY_VERSION_ENV)
+            return (None, None, None)
+
+        original = os.environ.pop(MICROSOFT_OPENTELEMETRY_VERSION_ENV, None)
+        try:
+            with patch(
+                "microsoft.opentelemetry._distro._append_azure_monitor_components",
+                side_effect=_capture,
+            ):
+                use_microsoft_opentelemetry(
+                    enable_azure_monitor=True,
+                    azure_monitor_connection_string=TEST_CONNECTION_STRING,
+                )
+            self.assertEqual(captured.get("env_value"), VERSION)
+            self.assertEqual(os.environ.get(MICROSOFT_OPENTELEMETRY_VERSION_ENV), VERSION)
+        finally:
+            if original is None:
+                os.environ.pop(MICROSOFT_OPENTELEMETRY_VERSION_ENV, None)
+            else:
+                os.environ[MICROSOFT_OPENTELEMETRY_VERSION_ENV] = original
+
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")

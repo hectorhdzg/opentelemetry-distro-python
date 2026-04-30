@@ -60,6 +60,7 @@ from microsoft.opentelemetry._constants import (
     _SPECTRA_DEFAULT_HTTP_ENDPOINT,
     _SPECTRA_ENDPOINT_ENV,
     _SPECTRA_PROTOCOL_ENV,
+    MICROSOFT_OPENTELEMETRY_VERSION_ENV,
 )
 from microsoft.opentelemetry._instrumentation import get_dist_dependency_conflicts
 from microsoft.opentelemetry._otlp import is_otlp_enabled
@@ -68,6 +69,7 @@ from microsoft.opentelemetry._utils import (
     _append_console_components,
     _append_otlp_components,
 )
+from microsoft.opentelemetry._version import VERSION
 
 _logger = getLogger(__name__)
 
@@ -174,6 +176,7 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     :rtype: None
     """
 
+    os.environ[MICROSOFT_OPENTELEMETRY_VERSION_ENV] = VERSION
     enable_azure_monitor = kwargs.pop(ENABLE_AZURE_MONITOR_ARG, False)
     enable_console: bool = bool(kwargs.pop(ENABLE_CONSOLE_ARG, False))
     enable_a365: bool = bool(kwargs.pop(ENABLE_A365_ARG, False))

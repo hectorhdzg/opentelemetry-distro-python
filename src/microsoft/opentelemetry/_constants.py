@@ -108,3 +108,6 @@ A365_MAX_QUEUE_SIZE_ARG = "a365_max_queue_size"
 A365_SCHEDULED_DELAY_MS_ARG = "a365_scheduled_delay_ms"
 A365_EXPORTER_TIMEOUT_MS_ARG = "a365_exporter_timeout_ms"
 A365_MAX_EXPORT_BATCH_SIZE_ARG = "a365_max_export_batch_size"
+
+# --- Version propagation for distro to exporter ---
+MICROSOFT_OPENTELEMETRY_VERSION_ENV = "microsoft_opentelemetry_version"
