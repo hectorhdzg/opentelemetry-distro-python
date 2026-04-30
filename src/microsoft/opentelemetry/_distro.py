@@ -39,6 +39,10 @@ from microsoft.opentelemetry._constants import (
     A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG,
     A365_ENABLE_OBSERVABILITY_EXPORTER_ARG,
     A365_OBSERVABILITY_SCOPE_OVERRIDE_ARG,
+    A365_MAX_QUEUE_SIZE_ARG,
+    A365_SCHEDULED_DELAY_MS_ARG,
+    A365_EXPORTER_TIMEOUT_MS_ARG,
+    A365_MAX_EXPORT_BATCH_SIZE_ARG,
     ENABLE_AZURE_MONITOR_ARG,
     ENABLE_CONSOLE_ARG,
     INSTRUMENTATION_OPTIONS_ARG,
@@ -136,6 +140,18 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         A365 observability service. Equivalent to setting the
         ``A365_OBSERVABILITY_SCOPE_OVERRIDE`` environment variable. When provided,
         this kwarg overrides the env var.
+    :keyword int a365_max_queue_size:
+        Maximum queue size for the A365 batch span processor. Defaults to 2048
+        when omitted (BatchSpanProcessor default).
+    :keyword int a365_scheduled_delay_ms:
+        Delay between A365 export batches in milliseconds. Defaults to 5000
+        when omitted (BatchSpanProcessor default).
+    :keyword int a365_exporter_timeout_ms:
+        Timeout for a single A365 export operation in milliseconds. Defaults to
+        30000 when omitted (BatchSpanProcessor default).
+    :keyword int a365_max_export_batch_size:
+        Maximum batch size for a single A365 export operation. Defaults to 512
+        when omitted (BatchSpanProcessor default).
     :keyword bool enable_console:
         Enable console exporter for traces, metrics, and logs (development
         only).  Mirrors ``ExportTarget.Console`` from the .NET distro.
@@ -167,6 +183,10 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     a365_suppress_invoke_agent_input = kwargs.pop(A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG, None)
     a365_enable_observability_exporter = kwargs.pop(A365_ENABLE_OBSERVABILITY_EXPORTER_ARG, None)
     a365_observability_scope_override = kwargs.pop(A365_OBSERVABILITY_SCOPE_OVERRIDE_ARG, None)
+    a365_max_queue_size = kwargs.pop(A365_MAX_QUEUE_SIZE_ARG, None)
+    a365_scheduled_delay_ms = kwargs.pop(A365_SCHEDULED_DELAY_MS_ARG, None)
+    a365_exporter_timeout_ms = kwargs.pop(A365_EXPORTER_TIMEOUT_MS_ARG, None)
+    a365_max_export_batch_size = kwargs.pop(A365_MAX_EXPORT_BATCH_SIZE_ARG, None)
 
     enable_spectra: bool = bool(kwargs.pop(ENABLE_SPECTRA_ARG, False))
     spectra_endpoint = kwargs.pop(SPECTRA_ENDPOINT_ARG, None)
@@ -218,6 +238,10 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         suppress_invoke_agent_input=a365_suppress_invoke_agent_input,
         enable_observability_exporter=a365_enable_observability_exporter,
         observability_scope_override=a365_observability_scope_override,
+        max_queue_size=a365_max_queue_size,
+        scheduled_delay_ms=a365_scheduled_delay_ms,
+        exporter_timeout_ms=a365_exporter_timeout_ms,
+        max_export_batch_size=a365_max_export_batch_size,
     )
 
     # ---- Console exporters (dev-only, mirrors ExportTarget.Console) ----
@@ -287,6 +311,10 @@ def _append_a365_components(
     suppress_invoke_agent_input: Any = None,
     enable_observability_exporter: Any = None,
     observability_scope_override: Any = None,
+    max_queue_size: Any = None,
+    scheduled_delay_ms: Any = None,
+    exporter_timeout_ms: Any = None,
+    max_export_batch_size: Any = None,
 ) -> None:
     """Build and append Agent365 span processors to ``otel_kwargs``.
 
@@ -370,10 +398,23 @@ def _append_a365_components(
             use_s2s_endpoint=resolved_use_s2s,
         )
 
-        # Enriching batch processor wrapping the exporter
+        # Enriching batch processor wrapping the exporter.
+        # Only forward batch parameters when the user explicitly supplied
+        # them so that BatchSpanProcessor uses its own defaults otherwise.
+        batch_kwargs: Dict[str, Any] = {}
+        if max_queue_size is not None:
+            batch_kwargs["max_queue_size"] = max_queue_size
+        if scheduled_delay_ms is not None:
+            batch_kwargs["schedule_delay_millis"] = scheduled_delay_ms
+        if exporter_timeout_ms is not None:
+            batch_kwargs["export_timeout_millis"] = exporter_timeout_ms
+        if max_export_batch_size is not None:
+            batch_kwargs["max_export_batch_size"] = max_export_batch_size
+
         batch_processor = _EnrichingBatchSpanProcessor(
             exporter,
             suppress_invoke_agent_input=resolved_suppress_input,
+            **batch_kwargs,
         )
 
         otel_kwargs[SPAN_PROCESSORS_ARG].append(batch_processor)

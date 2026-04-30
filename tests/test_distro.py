@@ -387,6 +387,10 @@ class TestA365KwargsConfiguration(unittest.TestCase):
             a365_suppress_invoke_agent_input=True,
             a365_enable_observability_exporter=False,
             a365_observability_scope_override="api://custom-scope/.default",
+            a365_max_queue_size=5000,
+            a365_scheduled_delay_ms=2000,
+            a365_exporter_timeout_ms=13000,
+            a365_max_export_batch_size=534,
         )
         a365_mock.assert_called_once()
         _, kwargs = a365_mock.call_args
@@ -396,6 +400,10 @@ class TestA365KwargsConfiguration(unittest.TestCase):
         self.assertEqual(kwargs["suppress_invoke_agent_input"], True)
         self.assertEqual(kwargs["enable_observability_exporter"], False)
         self.assertEqual(kwargs["observability_scope_override"], "api://custom-scope/.default")
+        self.assertEqual(kwargs["max_queue_size"], 5000)
+        self.assertEqual(kwargs["scheduled_delay_ms"], 2000)
+        self.assertEqual(kwargs["exporter_timeout_ms"], 13000)
+        self.assertEqual(kwargs["max_export_batch_size"], 534)
 
     @patch("microsoft.opentelemetry._distro._append_a365_components")
     def test_a365_not_called_when_disabled(self, a365_mock):
@@ -680,6 +688,87 @@ class TestA365KwargsConfiguration(unittest.TestCase):
             _append_a365_components(True, otel_kwargs, enable_observability_exporter=True)
 
         default_resolver_mock.assert_called_once_with(scope_override=None)
+
+
+class TestA365BatchProcessorKwargs(unittest.TestCase):
+    """Tests for a365_max_queue_size / scheduled_delay_ms / exporter_timeout_ms /
+    max_export_batch_size kwargs forwarding to _EnrichingBatchSpanProcessor."""
+
+    def _build(self, **kwargs):
+        """Run _append_a365_components with the exporter enabled and return the
+        captured kwargs that were passed to _EnrichingBatchSpanProcessor."""
+        with (
+            patch(
+                "microsoft.opentelemetry.a365.core.exporters.utils._create_default_token_resolver",
+                return_value=lambda aid, tid: "token",
+            ),
+            patch("microsoft.opentelemetry.a365.core.exporters.agent365_exporter._Agent365Exporter"),
+            patch(
+                "microsoft.opentelemetry.a365.core.exporters.enriching_span_processor._EnrichingBatchSpanProcessor"
+            ) as proc_mock,
+        ):
+            otel_kwargs = {"span_processors": []}
+            _append_a365_components(
+                True,
+                otel_kwargs,
+                enable_observability_exporter=True,
+                **kwargs,
+            )
+        proc_mock.assert_called_once()
+        return proc_mock.call_args.kwargs
+
+    def test_batch_kwargs_omitted_when_user_does_not_pass_them(self):
+        """When the user passes none of the batch kwargs, the processor is
+        constructed without any of them so BatchSpanProcessor uses its own
+        defaults."""
+        proc_kwargs = self._build()
+        self.assertNotIn("max_queue_size", proc_kwargs)
+        self.assertNotIn("schedule_delay_millis", proc_kwargs)
+        self.assertNotIn("export_timeout_millis", proc_kwargs)
+        self.assertNotIn("max_export_batch_size", proc_kwargs)
+
+    def test_max_queue_size_forwarded(self):
+        proc_kwargs = self._build(max_queue_size=4096)
+        self.assertEqual(proc_kwargs["max_queue_size"], 4096)
+        self.assertNotIn("schedule_delay_millis", proc_kwargs)
+        self.assertNotIn("export_timeout_millis", proc_kwargs)
+        self.assertNotIn("max_export_batch_size", proc_kwargs)
+
+    def test_scheduled_delay_ms_forwarded_with_renamed_key(self):
+        """a365_scheduled_delay_ms maps to BatchSpanProcessor's schedule_delay_millis."""
+        proc_kwargs = self._build(scheduled_delay_ms=2000)
+        self.assertEqual(proc_kwargs["schedule_delay_millis"], 2000)
+        self.assertNotIn("scheduled_delay_ms", proc_kwargs)
+
+    def test_exporter_timeout_ms_forwarded_with_renamed_key(self):
+        """a365_exporter_timeout_ms maps to BatchSpanProcessor's export_timeout_millis."""
+        proc_kwargs = self._build(exporter_timeout_ms=15000)
+        self.assertEqual(proc_kwargs["export_timeout_millis"], 15000)
+        self.assertNotIn("exporter_timeout_ms", proc_kwargs)
+
+    def test_max_export_batch_size_forwarded(self):
+        proc_kwargs = self._build(max_export_batch_size=256)
+        self.assertEqual(proc_kwargs["max_export_batch_size"], 256)
+
+    def test_all_batch_kwargs_forwarded_together(self):
+        proc_kwargs = self._build(
+            max_queue_size=4096,
+            scheduled_delay_ms=2000,
+            exporter_timeout_ms=15000,
+            max_export_batch_size=256,
+        )
+        self.assertEqual(proc_kwargs["max_queue_size"], 4096)
+        self.assertEqual(proc_kwargs["schedule_delay_millis"], 2000)
+        self.assertEqual(proc_kwargs["export_timeout_millis"], 15000)
+        self.assertEqual(proc_kwargs["max_export_batch_size"], 256)
+        # Always-forwarded enriching kwarg is preserved.
+        self.assertIn("suppress_invoke_agent_input", proc_kwargs)
+
+    def test_zero_value_is_forwarded(self):
+        """Falsy-but-not-None integer values must still be forwarded (not dropped)."""
+        proc_kwargs = self._build(max_queue_size=0, max_export_batch_size=0)
+        self.assertEqual(proc_kwargs["max_queue_size"], 0)
+        self.assertEqual(proc_kwargs["max_export_batch_size"], 0)
 
 
 class TestA365Components(unittest.TestCase):
