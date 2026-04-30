@@ -79,6 +79,11 @@ from microsoft.opentelemetry._utils import (
 )
 from microsoft.opentelemetry._version import VERSION
 
+import azure.monitor.opentelemetry.exporter._utils as _exporter_utils
+from azure.monitor.opentelemetry.exporter.statsbeat._statsbeat_metrics import (
+    _StatsbeatMetrics,
+)
+
 _logger = getLogger(__name__)
 
 
@@ -353,27 +358,19 @@ def _initialize_sdkstats(enable_azure_monitor: bool) -> None:
 
 def _bridge_sdkstats_to_azure_monitor() -> None:
     """OR distro feature/instrumentation bits into the exporter's statsbeat."""
-    try:
-        from azure.monitor.opentelemetry.exporter.statsbeat._statsbeat_metrics import (
-            _StatsbeatMetrics,
-        )
-        import azure.monitor.opentelemetry.exporter._utils as _exporter_utils
+    # Feature bits — OR our flags into the class-level dict that the
+    # exporter's _get_feature_metric callback reads each cycle.
+    feature_flags = get_sdkstats_feature_flags()
+    if feature_flags:
+        current = _StatsbeatMetrics._FEATURE_ATTRIBUTES.get("feature") or 0
+        _StatsbeatMetrics._FEATURE_ATTRIBUTES["feature"] = current | feature_flags
 
-        # Feature bits — OR our flags into the class-level dict that the
-        # exporter's _get_feature_metric callback reads each cycle.
-        feature_flags = get_sdkstats_feature_flags()
-        if feature_flags:
-            current = _StatsbeatMetrics._FEATURE_ATTRIBUTES.get("feature") or 0
-            _StatsbeatMetrics._FEATURE_ATTRIBUTES["feature"] = current | feature_flags
-
-        # Instrumentation bits — OR directly into the exporter's module-
-        # level bitmask (thread-safe via their lock).
-        instrumentation_flags = get_sdkstats_instrumentation_flags()
-        if instrumentation_flags:
-            with _exporter_utils._INSTRUMENTATIONS_BIT_MASK_LOCK:
-                _exporter_utils._INSTRUMENTATIONS_BIT_MASK |= instrumentation_flags
-    except Exception:  # pylint: disable=broad-exception-caught
-        _logger.debug("Failed to bridge SDKStats into Azure Monitor statsbeat.", exc_info=True)
+    # Instrumentation bits — OR directly into the exporter's module-
+    # level bitmask (thread-safe via their lock).
+    instrumentation_flags = get_sdkstats_instrumentation_flags()
+    if instrumentation_flags:
+        with _exporter_utils._INSTRUMENTATIONS_BIT_MASK_LOCK:
+            _exporter_utils._INSTRUMENTATIONS_BIT_MASK |= instrumentation_flags
 
 
 def _append_a365_components(

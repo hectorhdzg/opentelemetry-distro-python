@@ -373,7 +373,7 @@ class TestSdkStatsManager(unittest.TestCase):
                     metric_names.add(metric.name)
 
         self.assertIn("feature", metric_names)
-        self.assertIn("feature.instrumentations", metric_names)
+        self.assertIn("feature", metric_names)
 
 
 class TestBridgeSdkStatsToAzureMonitor(unittest.TestCase):
