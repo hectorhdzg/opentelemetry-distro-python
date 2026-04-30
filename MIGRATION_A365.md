@@ -350,6 +350,67 @@ use_microsoft_opentelemetry(
 When `enable_a365=False` (the default), all supported instrumentations
 remain enabled by default.
 
+## Custom SpanProcessors — Filtering Console Output
+
+By default, when `enable_console=True` (or any additional exporter is
+configured), **all** spans are exported — including framework-level spans
+(`agents.app.*`, `agents.turn.*`, `agents.connector.*`,
+`agents.authentication.*`). This can make local development noisy when you
+only care about the 4 A365 observability scopes:
+
+- `invoke_agent`
+- `chat` (InferenceScope)
+- `execute_tool` (ExecuteToolScope)
+- `output_messages` (OutputScope)
+
+To filter output to only A365 scopes, pass a custom `SpanProcessor` via the
+`span_processors` parameter:
+
+```python
+from opentelemetry.trace import SpanContext, TraceFlags
+from opentelemetry.sdk.trace import SpanProcessor, ReadableSpan
+
+from microsoft.opentelemetry import use_microsoft_opentelemetry
+
+
+class A365OnlyConsoleSpanProcessor(SpanProcessor):
+    """Send only A365 observability spans to the console exporter."""
+
+    A365_OPS = {"invoke_agent", "chat", "execute_tool", "output_messages"}
+
+    def on_start(self, span, parent_context=None):
+        op = (span.attributes or {}).get("gen_ai.operation.name")
+        if op not in self.A365_OPS:
+            # Create new SpanContext with trace_flags = 0
+            span._context = SpanContext(
+                span.context.trace_id,
+                span.context.span_id,
+                span.context.is_remote,
+                TraceFlags(0),  # UNSAMPLED
+                span.context.trace_state,
+            )
+
+    def on_end(self, span: ReadableSpan):
+        pass
+
+    def shutdown(self):
+        pass
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
+
+
+use_microsoft_opentelemetry(
+    enable_a365=True,
+    enable_console=True,
+    a365_token_resolver=my_token_resolver,
+    span_processors=[A365OnlyConsoleSpanProcessor()],
+)
+```
+
+This leverages standard OpenTelemetry `SpanProcessor` APIs — you can adapt
+the filter logic to any criteria (span name, attributes, etc.).
+
 ## Environment Variable Mapping
 
 | Old env var | New env var | Notes |
