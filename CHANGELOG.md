@@ -17,6 +17,7 @@
 - Spectra Collector sidecar support with graceful fallback
 - Browser SDK Loader integration for Azure Monitor
 - Configurable instrumentation enablement via `instrumentation_options`
+- Add documentation to include span filtering for console exporter traces
 
 ### Breaking Changes
 - Package name is `microsoft-opentelemetry` (replaces all pre-release versions)
