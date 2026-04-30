@@ -399,7 +399,7 @@ class A365OnlyConsoleSpanProcessor(SpanProcessor):
 
 use_microsoft_opentelemetry(
     enable_a365=True,
-    enable_console=False,
+    enable_console=True,
     a365_token_resolver=my_token_resolver,
     span_processors=[A365OnlyConsoleSpanProcessor()],
 )
