@@ -363,13 +363,12 @@ only care about the 4 A365 observability scopes:
 - `execute_tool` (ExecuteToolScope)
 - `output_messages` (OutputScope)
 
-To filter output to only A365 scopes, disable the built-in console exporter
-and supply your own `SpanProcessor` that filters in `on_end` (where span
-attributes such as `gen_ai.operation.name` are finalized):
+To filter output to only A365 scopes, pass a custom `SpanProcessor` via the
+`span_processors` parameter:
 
 ```python
+from opentelemetry.trace import SpanContext, TraceFlags
 from opentelemetry.sdk.trace import SpanProcessor, ReadableSpan
-from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
 
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 
@@ -392,10 +391,10 @@ class A365OnlyConsoleSpanProcessor(SpanProcessor):
             )
 
     def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return self._console_processor.force_flush(timeout_millis)
+        return True
 
     def shutdown(self):
-        self._console_processor.shutdown()
+        pass
 
 
 use_microsoft_opentelemetry(
