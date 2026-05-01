@@ -39,6 +39,10 @@ from microsoft.opentelemetry._constants import (
     A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG,
     A365_ENABLE_OBSERVABILITY_EXPORTER_ARG,
     A365_OBSERVABILITY_SCOPE_OVERRIDE_ARG,
+    A365_MAX_QUEUE_SIZE_ARG,
+    A365_SCHEDULED_DELAY_MS_ARG,
+    A365_EXPORTER_TIMEOUT_MS_ARG,
+    A365_MAX_EXPORT_BATCH_SIZE_ARG,
     ENABLE_AZURE_MONITOR_ARG,
     ENABLE_CONSOLE_ARG,
     INSTRUMENTATION_OPTIONS_ARG,
@@ -56,13 +60,28 @@ from microsoft.opentelemetry._constants import (
     _SPECTRA_DEFAULT_HTTP_ENDPOINT,
     _SPECTRA_ENDPOINT_ENV,
     _SPECTRA_PROTOCOL_ENV,
+    MICROSOFT_OPENTELEMETRY_VERSION_ENV,
 )
 from microsoft.opentelemetry._instrumentation import get_dist_dependency_conflicts
 from microsoft.opentelemetry._otlp import is_otlp_enabled
+from microsoft.opentelemetry._sdkstats._state import (
+    SdkStatsFeature,
+    get_sdkstats_feature_flags,
+    get_sdkstats_instrumentation_flags,
+    is_sdkstats_enabled,
+    set_sdkstats_feature,
+    set_sdkstats_instrumentation_by_name,
+)
 from microsoft.opentelemetry._utils import (
     _append_azure_monitor_components,
     _append_console_components,
     _append_otlp_components,
+)
+from microsoft.opentelemetry._version import VERSION
+
+import azure.monitor.opentelemetry.exporter._utils as _exporter_utils
+from azure.monitor.opentelemetry.exporter.statsbeat._statsbeat_metrics import (
+    _StatsbeatMetrics,
 )
 
 _logger = getLogger(__name__)
@@ -136,6 +155,18 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         A365 observability service. Equivalent to setting the
         ``A365_OBSERVABILITY_SCOPE_OVERRIDE`` environment variable. When provided,
         this kwarg overrides the env var.
+    :keyword int a365_max_queue_size:
+        Maximum queue size for the A365 batch span processor. Defaults to 2048
+        when omitted (BatchSpanProcessor default).
+    :keyword int a365_scheduled_delay_ms:
+        Delay between A365 export batches in milliseconds. Defaults to 5000
+        when omitted (BatchSpanProcessor default).
+    :keyword int a365_exporter_timeout_ms:
+        Timeout for a single A365 export operation in milliseconds. Defaults to
+        30000 when omitted (BatchSpanProcessor default).
+    :keyword int a365_max_export_batch_size:
+        Maximum batch size for a single A365 export operation. Defaults to 512
+        when omitted (BatchSpanProcessor default).
     :keyword bool enable_console:
         Enable console exporter for traces, metrics, and logs (development
         only).  Mirrors ``ExportTarget.Console`` from the .NET distro.
@@ -158,7 +189,8 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     :rtype: None
     """
 
-    enable_azure_monitor = kwargs.pop(ENABLE_AZURE_MONITOR_ARG, False)
+    os.environ[MICROSOFT_OPENTELEMETRY_VERSION_ENV] = VERSION
+    enable_azure_monitor: bool = bool(kwargs.pop(ENABLE_AZURE_MONITOR_ARG, False))
     enable_console: bool = bool(kwargs.pop(ENABLE_CONSOLE_ARG, False))
     enable_a365: bool = bool(kwargs.pop(ENABLE_A365_ARG, False))
     a365_token_resolver = kwargs.pop(A365_TOKEN_RESOLVER_ARG, None)
@@ -167,6 +199,10 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     a365_suppress_invoke_agent_input = kwargs.pop(A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG, None)
     a365_enable_observability_exporter = kwargs.pop(A365_ENABLE_OBSERVABILITY_EXPORTER_ARG, None)
     a365_observability_scope_override = kwargs.pop(A365_OBSERVABILITY_SCOPE_OVERRIDE_ARG, None)
+    a365_max_queue_size = kwargs.pop(A365_MAX_QUEUE_SIZE_ARG, None)
+    a365_scheduled_delay_ms = kwargs.pop(A365_SCHEDULED_DELAY_MS_ARG, None)
+    a365_exporter_timeout_ms = kwargs.pop(A365_EXPORTER_TIMEOUT_MS_ARG, None)
+    a365_max_export_batch_size = kwargs.pop(A365_MAX_EXPORT_BATCH_SIZE_ARG, None)
 
     enable_spectra: bool = bool(kwargs.pop(ENABLE_SPECTRA_ARG, False))
     spectra_endpoint = kwargs.pop(SPECTRA_ENDPOINT_ARG, None)
@@ -196,8 +232,13 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
             inst_opts.setdefault(lib, {}).setdefault("enabled", False)
         otel_kwargs[INSTRUMENTATION_OPTIONS_ARG] = inst_opts
 
+    # ---- SDKStats: record distro feature flag ----
+    set_sdkstats_feature(SdkStatsFeature.DISTRO)
+
     # ---- OTLP exporters (append to user-supplied processors/readers) ----
     _append_otlp_components(otel_kwargs)
+    if is_otlp_enabled():
+        set_sdkstats_feature(SdkStatsFeature.OTLP_EXPORT)
 
     # ---- Spectra sidecar exporter (OTLP gRPC/HTTP to localhost) ----
     _append_spectra_components(
@@ -218,6 +259,10 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         suppress_invoke_agent_input=a365_suppress_invoke_agent_input,
         enable_observability_exporter=a365_enable_observability_exporter,
         observability_scope_override=a365_observability_scope_override,
+        max_queue_size=a365_max_queue_size,
+        scheduled_delay_ms=a365_scheduled_delay_ms,
+        exporter_timeout_ms=a365_exporter_timeout_ms,
+        max_export_batch_size=a365_max_export_batch_size,
     )
 
     # ---- Console exporters (dev-only, mirrors ExportTarget.Console) ----
@@ -225,6 +270,8 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     if not enable_console and not enable_azure_monitor and not enable_a365 and not is_otlp_enabled():
         enable_console = True
     _append_console_components(otel_kwargs, enable_console)
+    if enable_console:
+        set_sdkstats_feature(SdkStatsFeature.CONSOLE_EXPORT)
 
     # ---- Build and register providers ----
     tracer_provider: Optional[TracerProvider] = None
@@ -266,6 +313,9 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     # ---- Instrumentations (always, after providers are set) ----
     _setup_instrumentations(otel_kwargs)
 
+    # ---- SDKStats manager (after providers, before returning) ----
+    _initialize_sdkstats(enable_azure_monitor)
+
     if enable_azure_monitor:
         _logger.info("Azure Monitor enabled.")
 
@@ -278,6 +328,52 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return val in ("true", "1", "yes", "on")
 
 
+def _initialize_sdkstats(enable_azure_monitor: bool) -> None:
+    """Set up SDKStats — always sends to the Application Insights statsbeat endpoint.
+
+    When Azure Monitor is active the exporter package's own StatsbeatManager
+    handles everything and we bridge our distro-level feature/instrumentation
+    bits into its state so it reports the full picture.  For A365-only,
+    OTLP-only, or Console-only customers this function creates a standalone
+    pipeline using ``AzureMonitorMetricExporter(is_sdkstats=True)`` pointed
+    at the well-known statsbeat ingestion endpoint.  The customer's telemetry
+    pipeline is not affected.
+    """
+    if not is_sdkstats_enabled():
+        return
+
+    if enable_azure_monitor:
+        # The exporter package runs its own statsbeat.  Bridge our
+        # distro-level feature bits (A365_EXPORT, OTLP_EXPORT, etc.)
+        # and instrumentation bits into the exporter's state so they
+        # appear in the same observation.  Our bit values (128+) do
+        # not collide with the exporter's (1–64).
+        _bridge_sdkstats_to_azure_monitor()
+        return
+
+    from microsoft.opentelemetry._sdkstats._manager import SdkStatsManager
+
+    manager = SdkStatsManager()
+    manager.initialize()
+
+
+def _bridge_sdkstats_to_azure_monitor() -> None:
+    """OR distro feature/instrumentation bits into the exporter's statsbeat."""
+    # Feature bits — OR our flags into the class-level dict that the
+    # exporter's _get_feature_metric callback reads each cycle.
+    feature_flags = get_sdkstats_feature_flags()
+    if feature_flags:
+        current = _StatsbeatMetrics._FEATURE_ATTRIBUTES.get("feature") or 0
+        _StatsbeatMetrics._FEATURE_ATTRIBUTES["feature"] = current | feature_flags
+
+    # Instrumentation bits — OR directly into the exporter's module-
+    # level bitmask (thread-safe via their lock).
+    instrumentation_flags = get_sdkstats_instrumentation_flags()
+    if instrumentation_flags:
+        with _exporter_utils._INSTRUMENTATIONS_BIT_MASK_LOCK:
+            _exporter_utils._INSTRUMENTATIONS_BIT_MASK |= instrumentation_flags
+
+
 def _append_a365_components(
     enable_a365: bool,
     otel_kwargs: Dict[str, Any],
@@ -287,6 +383,10 @@ def _append_a365_components(
     suppress_invoke_agent_input: Any = None,
     enable_observability_exporter: Any = None,
     observability_scope_override: Any = None,
+    max_queue_size: Any = None,
+    scheduled_delay_ms: Any = None,
+    exporter_timeout_ms: Any = None,
+    max_export_batch_size: Any = None,
 ) -> None:
     """Build and append Agent365 span processors to ``otel_kwargs``.
 
@@ -336,6 +436,8 @@ def _append_a365_components(
         otel_kwargs[SPAN_PROCESSORS_ARG] = list(otel_kwargs.get(SPAN_PROCESSORS_ARG) or [])
         otel_kwargs[SPAN_PROCESSORS_ARG].append(baggage_processor)
 
+        set_sdkstats_feature(SdkStatsFeature.A365_EXPORT)
+
         # Resolve configuration: kwargs > env vars > defaults
         resolved_cluster_category = cluster_category or os.environ.get(A365_CLUSTER_CATEGORY_ENV, "prod")
         resolved_use_s2s = use_s2s_endpoint if use_s2s_endpoint is not None else _env_bool(A365_USE_S2S_ENDPOINT_ENV)
@@ -370,10 +472,23 @@ def _append_a365_components(
             use_s2s_endpoint=resolved_use_s2s,
         )
 
-        # Enriching batch processor wrapping the exporter
+        # Enriching batch processor wrapping the exporter.
+        # Only forward batch parameters when the user explicitly supplied
+        # them so that BatchSpanProcessor uses its own defaults otherwise.
+        batch_kwargs: Dict[str, Any] = {}
+        if max_queue_size is not None:
+            batch_kwargs["max_queue_size"] = max_queue_size
+        if scheduled_delay_ms is not None:
+            batch_kwargs["schedule_delay_millis"] = scheduled_delay_ms
+        if exporter_timeout_ms is not None:
+            batch_kwargs["export_timeout_millis"] = exporter_timeout_ms
+        if max_export_batch_size is not None:
+            batch_kwargs["max_export_batch_size"] = max_export_batch_size
+
         batch_processor = _EnrichingBatchSpanProcessor(
             exporter,
             suppress_invoke_agent_input=resolved_suppress_input,
+            **batch_kwargs,
         )
 
         otel_kwargs[SPAN_PROCESSORS_ARG].append(batch_processor)
@@ -404,6 +519,8 @@ def _append_spectra_components(
     """
     if not enable_spectra:
         return
+    
+    set_sdkstats_feature(SdkStatsFeature.SPECTRA_EXPORT)
 
     if otel_kwargs.get(DISABLE_TRACING_ARG, False):
         return
@@ -575,6 +692,7 @@ def _setup_instrumentations(otel_kwargs: Dict[str, Any]) -> None:
                 continue
             instrumentor: Any = entry_point.load()
             instrumentor().instrument(skip_dep_check=True)
+            set_sdkstats_instrumentation_by_name(lib_name)
         except Exception as ex:  # pylint: disable=broad-except
             _logger.warning(
                 "Exception occurred when instrumenting: %s.",

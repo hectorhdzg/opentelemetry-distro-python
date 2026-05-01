@@ -17,7 +17,7 @@ from microsoft.opentelemetry.a365.core.exporters.utils import (
     is_agent365_exporter_enabled,
     kind_name,
     parse_retry_after,
-    partition_by_identity,
+    filter_and_partition_by_identity,
     status_name,
     truncate_span,
 )
@@ -108,44 +108,51 @@ class TestTruncateSpan(unittest.TestCase):
         self.assertEqual(result, span)
 
 
-class TestPartitionByIdentity(unittest.TestCase):
-    def _make_span(self, tenant_id, agent_id):
+class TestFilterAndPartitionByIdentity(unittest.TestCase):
+    def _make_span(self, tenant_id, agent_id, operation_name="invoke_agent"):
         span = MagicMock()
-        span.attributes = {
+        attrs = {
             "microsoft.tenant.id": tenant_id,
             "gen_ai.agent.id": agent_id,
         }
+        if operation_name is not None:
+            attrs["gen_ai.operation.name"] = operation_name
+        span.attributes = attrs
         return span
 
     def test_groups_by_identity(self):
         s1 = self._make_span("t1", "a1")
         s2 = self._make_span("t1", "a1")
         s3 = self._make_span("t2", "a2")
-        result = partition_by_identity([s1, s2, s3])
+        result = filter_and_partition_by_identity([s1, s2, s3])
         self.assertEqual(len(result), 2)
         self.assertEqual(len(result[("t1", "a1")]), 2)
         self.assertEqual(len(result[("t2", "a2")]), 1)
 
     def test_skips_missing_tenant(self):
         span = MagicMock()
-        span.attributes = {"gen_ai.agent.id": "a1"}
-        result = partition_by_identity([span])
+        span.attributes = {"gen_ai.agent.id": "a1", "gen_ai.operation.name": "invoke_agent"}
+        result = filter_and_partition_by_identity([span])
         self.assertEqual(len(result), 0)
 
     def test_skips_missing_agent(self):
         span = MagicMock()
-        span.attributes = {"microsoft.tenant.id": "t1"}
-        result = partition_by_identity([span])
+        span.attributes = {"microsoft.tenant.id": "t1", "gen_ai.operation.name": "invoke_agent"}
+        result = filter_and_partition_by_identity([span])
         self.assertEqual(len(result), 0)
 
     def test_skips_empty_values(self):
         span = MagicMock()
-        span.attributes = {"microsoft.tenant.id": "", "gen_ai.agent.id": "a1"}
-        result = partition_by_identity([span])
+        span.attributes = {
+            "microsoft.tenant.id": "",
+            "gen_ai.agent.id": "a1",
+            "gen_ai.operation.name": "invoke_agent",
+        }
+        result = filter_and_partition_by_identity([span])
         self.assertEqual(len(result), 0)
 
     def test_empty_spans(self):
-        result = partition_by_identity([])
+        result = filter_and_partition_by_identity([])
         self.assertEqual(len(result), 0)
 
 

@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "microsoft-opentelemetry"
-version = "0.1.0b3"
+version = "1.0.0"
 description = "Minimal template for the Microsoft OpenTelemetry distro for Python"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
@@ -52,6 +52,9 @@ dependencies = [
 [project.optional-dependencies]
 langchain = [
     "langchain-core>=0.2.0",
+]
+agent-framework = [
+    "agent-framework>=1.0.0",
 ]
 test = [
     "pytest>=8.0",

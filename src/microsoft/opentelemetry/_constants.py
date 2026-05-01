@@ -104,3 +104,10 @@ A365_USE_S2S_ENDPOINT_ARG = "a365_use_s2s_endpoint"
 A365_SUPPRESS_INVOKE_AGENT_INPUT_ARG = "a365_suppress_invoke_agent_input"
 A365_ENABLE_OBSERVABILITY_EXPORTER_ARG = "a365_enable_observability_exporter"
 A365_OBSERVABILITY_SCOPE_OVERRIDE_ARG = "a365_observability_scope_override"
+A365_MAX_QUEUE_SIZE_ARG = "a365_max_queue_size"
+A365_SCHEDULED_DELAY_MS_ARG = "a365_scheduled_delay_ms"
+A365_EXPORTER_TIMEOUT_MS_ARG = "a365_exporter_timeout_ms"
+A365_MAX_EXPORT_BATCH_SIZE_ARG = "a365_max_export_batch_size"
+
+# --- Version propagation for distro to exporter ---
+MICROSOFT_OPENTELEMETRY_VERSION_ENV = "microsoft_opentelemetry_version"

@@ -35,13 +35,32 @@ _logger = getLogger(__name__)
 
 
 def _mark_browser_loader_feature(is_enabled: bool) -> None:
-    """Record browser SDK loader usage in statsbeat when available.
+    """Record browser SDK loader usage in SDKStats.
+
+    Uses the in-repo sdkstats module first, then falls back to the Azure
+    Monitor Exporter statsbeat for backward compatibility.
 
     :param is_enabled: Indicates whether the browser loader is enabled.
     :type is_enabled: bool
     """
     if not is_enabled:
         return
+
+    # Record via the in-repo sdkstats module (always available)
+    try:
+        from microsoft.opentelemetry._sdkstats._state import (
+            SdkStatsFeature,
+            is_sdkstats_enabled,
+            get_sdkstats_shutdown,
+            set_sdkstats_feature,
+        )
+
+        if is_sdkstats_enabled() and not get_sdkstats_shutdown():
+            set_sdkstats_feature(SdkStatsFeature.AZURE_MONITOR_BROWSER_SDK_LOADER)
+    except Exception:  # pylint: disable=broad-exception-caught
+        _logger.debug("Failed to record browser loader sdkstats usage", exc_info=True)
+
+    # Also propagate to the Azure Monitor Exporter statsbeat (if available)
     try:
         from azure.monitor.opentelemetry.exporter.statsbeat._state import (
             get_statsbeat_browser_sdk_loader_feature_set,
@@ -49,16 +68,15 @@ def _mark_browser_loader_feature(is_enabled: bool) -> None:
             is_statsbeat_enabled,
             set_statsbeat_browser_sdk_loader_feature_set,
         )
-    except ImportError:
-        return
 
-    try:
         if (
             is_statsbeat_enabled()
             and not get_statsbeat_shutdown()
             and not get_statsbeat_browser_sdk_loader_feature_set()
         ):
             set_statsbeat_browser_sdk_loader_feature_set()
+    except ImportError:
+        pass
     except Exception:  # pylint: disable=broad-exception-caught
         _logger.debug("Failed to record browser loader statsbeat usage", exc_info=True)
 

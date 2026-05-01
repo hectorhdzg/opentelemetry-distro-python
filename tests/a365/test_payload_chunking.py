@@ -165,6 +165,7 @@ class TestExporterChunking(unittest.TestCase):
         mock_span.attributes = {
             "microsoft.tenant.id": "tenant-1",
             "gen_ai.agent.id": "agent-1",
+            "gen_ai.operation.name": "chat",
             "payload": "x" * attribute_size,
         }
         mock_span.events = []

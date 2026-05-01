@@ -257,6 +257,10 @@ use_microsoft_opentelemetry(
     a365_suppress_invoke_agent_input=True,
     a365_enable_observability_exporter=True,
     a365_observability_scope_override="api://<app-id>/.default",
+    a365_max_queue_size=4096,
+    a365_scheduled_delay_ms=2000,
+    a365_exporter_timeout_ms=15000,
+    a365_max_export_batch_size=256,
 )
 ```
 
@@ -275,6 +279,10 @@ use_microsoft_opentelemetry(
 | `cluster_category` | `a365_cluster_category` kwarg or `A365_CLUSTER_CATEGORY` env var |
 | `exporter_options` | Individual kwargs or env vars (see below) |
 | `suppress_invoke_agent_input` | `a365_suppress_invoke_agent_input` kwarg or `A365_SUPPRESS_INVOKE_AGENT_INPUT` env var |
+| `exporter_options.max_queue_size` | `a365_max_queue_size` kwarg |
+| `exporter_options.scheduled_delay_ms` | `a365_scheduled_delay_ms` kwarg |
+| `exporter_options.exporter_timeout_ms` | `a365_exporter_timeout_ms` kwarg |
+| `exporter_options.max_export_batch_size` | `a365_max_export_batch_size` kwarg |
 | _(env var only previously)_ `ENABLE_A365_OBSERVABILITY_EXPORTER` | `a365_enable_observability_exporter` kwarg or `ENABLE_A365_OBSERVABILITY_EXPORTER` env var |
 | _(env var only previously)_ `A365_OBSERVABILITY_SCOPE_OVERRIDE` | `a365_observability_scope_override` kwarg or `A365_OBSERVABILITY_SCOPE_OVERRIDE` env var |
 
@@ -351,7 +359,7 @@ configured), **all** spans are exported — including framework-level spans
 only care about the 4 A365 observability scopes:
 
 - `invoke_agent`
-- `Chat` (InferenceScope)
+- `chat` (InferenceScope)
 - `execute_tool` (ExecuteToolScope)
 - `output_messages` (OutputScope)
 
@@ -365,17 +373,15 @@ from opentelemetry.sdk.trace import SpanProcessor, ReadableSpan
 from microsoft.opentelemetry import use_microsoft_opentelemetry
 
 
-class A365OnlySpanProcessor(SpanProcessor):
-    """Filter console/exporter output to only A365 observability scopes."""
+class A365OnlyConsoleSpanProcessor(SpanProcessor):
+    """Send only A365 observability spans to the console exporter."""
 
     A365_OPS = {"invoke_agent", "chat", "execute_tool", "output_messages"}
 
     def on_start(self, span, parent_context=None):
-        """Mark non-A365 spans as unsampled at start time."""
-        op = span.attributes.get("gen_ai.operation.name")
-
+        op = (span.attributes or {}).get("gen_ai.operation.name")
         if op not in self.A365_OPS:
-            # Create new SpanContext with trace_flags = 0 (UNSAMPLED)
+            # Create new SpanContext with trace_flags = 0
             span._context = SpanContext(
                 span.context.trace_id,
                 span.context.span_id,
@@ -387,18 +393,18 @@ class A365OnlySpanProcessor(SpanProcessor):
     def on_end(self, span: ReadableSpan):
         pass
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
-        return True
-
     def shutdown(self):
         pass
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        return True
 
 
 use_microsoft_opentelemetry(
     enable_a365=True,
     enable_console=True,
     a365_token_resolver=my_token_resolver,
-    span_processors=[A365OnlySpanProcessor()],
+    span_processors=[A365OnlyConsoleSpanProcessor()],
 )
 ```
 
