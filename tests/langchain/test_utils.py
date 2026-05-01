@@ -592,7 +592,6 @@ class TestBuildLlmInvocation(TestCase):
         inv = build_llm_invocation(run)
         self.assertEqual(inv.request_model, "gpt-4")
         self.assertEqual(inv.provider, "openai")
-        self.assertEqual(inv.operation_name, CHAT_OPERATION_NAME)
 
     def test_builds_invocation_with_tokens(self):
         run = _make_run(
@@ -611,7 +610,6 @@ class TestBuildLlmInvocation(TestCase):
     def test_builds_invocation_minimal(self):
         run = _make_run(run_type="llm", outputs=None, extra=None, inputs=None)
         inv = build_llm_invocation(run)
-        self.assertEqual(inv.operation_name, CHAT_OPERATION_NAME)
         self.assertIsNone(inv.request_model)
 
     def test_builds_invocation_with_request_parameters(self):

@@ -40,6 +40,7 @@ from microsoft.opentelemetry._genai._langchain._utils import (
     flatten,
     safe_json_dumps,
     IGNORED_EXCEPTION_PATTERNS,
+    CHAT_OPERATION_NAME,
     INVOKE_AGENT_OPERATION_NAME,
     EXECUTE_TOOL_OPERATION_NAME,
     GEN_AI_AGENT_DESCRIPTION_KEY,
@@ -535,7 +536,7 @@ def _update_span(span: Span, run: Run) -> LLMInvocation | None:
         _apply_llm_finish_attributes(span, invocation)
         # Fix "chat None" span name when model is unknown
         if invocation.request_model is None:
-            span.update_name(invocation.operation_name)
+            span.update_name(CHAT_OPERATION_NAME)
         # Extras not covered by LLMInvocation
         span.set_attributes(
             dict(

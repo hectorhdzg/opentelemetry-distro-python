@@ -50,8 +50,13 @@ from opentelemetry.util.genai.types import (
     LLMInvocation,
     OutputMessage,
     Text,
-    ToolCall,
 )
+
+try:
+    from opentelemetry.util.genai.types import ToolCallRequest as ToolCall  # >=0.4b0
+except ImportError:
+    from opentelemetry.util.genai.types import ToolCall  # type: ignore[no-redef,attr-defined]  # 0.3b0
+
 from opentelemetry.util.types import AttributeValue
 from wrapt import ObjectProxy
 
@@ -537,7 +542,7 @@ def build_llm_invocation(run: Run) -> LLMInvocation:  # pylint: disable=too-many
     This bridges LangChain's run data model to the canonical OTel GenAI
     data model so that ``_apply_llm_finish_attributes`` can be used.
     """
-    inv = LLMInvocation(operation_name=CHAT_OPERATION_NAME)
+    inv = LLMInvocation()
 
     # --- Model name ---
     for _, val in model_name(run.outputs, run.extra):

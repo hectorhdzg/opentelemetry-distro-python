@@ -10,6 +10,7 @@ Mirrors the Azure Monitor Exporter ``_StatsbeatMetrics`` feature/
 instrumentation gauge pattern, but is backend-agnostic — the metrics are
 collected into a caller-supplied ``MeterProvider``.
 """
+
 from enum import Enum
 import platform
 from typing import Any, Dict, Iterable, List
@@ -23,6 +24,7 @@ from microsoft.opentelemetry._sdkstats._state import (
 )
 from microsoft.opentelemetry._version import VERSION
 
+
 class _RP_Names(Enum):
     APP_SERVICE = "appsvc"
     FUNCTIONS = "functions"
@@ -30,10 +32,12 @@ class _RP_Names(Enum):
     VM = "vm"
     UNKNOWN = "unknown"
 
+
 class _AttachTypes(Enum):
     MANUAL = "Manual"
     INTEGRATED = "IntegratedAuto"
     STANDALONE = "StandaloneAuto"
+
 
 class _FeatureTypes(Enum):
     FEATURE = 0

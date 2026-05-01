@@ -5,11 +5,15 @@ applyTo: "**/*.py"
 
 # Agent365 Python SDK → Microsoft OpenTelemetry Distro Migration
 
+> **Official docs:** [Microsoft OpenTelemetry on Microsoft Learn](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/microsoft-opentelemetry?tabs=python)
+
 Users are migrating from the standalone A365 observability PyPI packages under
 `microsoft-agents-a365-observability-*` to a single distro package: `microsoft-opentelemetry`.
 
 This migration covers the **observability** packages, along with the related **hosting** and **runtime** packages.
 Other A365 packages, such as notifications and tooling, are not part of this distro.
+
+After migrating, see [A365_DOCUMENTATION.md](A365_DOCUMENTATION.md) for the full distro usage guide (configuration, auto-instrumentation, token resolver, baggage, scope classes, troubleshooting).
 
 The distro bundles:
 - **`a365/core`** — Scope classes, span enrichment, A365 exporter, baggage middleware
@@ -482,3 +486,10 @@ with BaggageBuilder().tenant_id(agent.tenant_id).agent_id(agent.agent_id).build(
     ) as scope:
         scope.record_response("world")
 ```
+
+## Next Steps
+
+- [A365 Documentation](A365_DOCUMENTATION.md) — full distro usage guide (configuration, auto-instrumentation, baggage, scope classes, validate locally, troubleshooting)
+- [README](README.md) — general distro options (Azure Monitor, OTLP, sampling, console exporter)
+- [Microsoft OpenTelemetry SDK docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/microsoft-opentelemetry?tabs=python) — official documentation on Microsoft Learn
+- [Troubleshooting](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/troubleshooting) — official troubleshooting guide

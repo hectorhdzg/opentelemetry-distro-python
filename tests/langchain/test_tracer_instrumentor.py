@@ -14,6 +14,7 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
+
 class TestLangChainInstrumentor(TestCase):
     def setUp(self):
         # Ensure clean state between tests

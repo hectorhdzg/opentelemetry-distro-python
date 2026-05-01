@@ -519,7 +519,7 @@ def _append_spectra_components(
     """
     if not enable_spectra:
         return
-    
+
     set_sdkstats_feature(SdkStatsFeature.SPECTRA_EXPORT)
 
     if otel_kwargs.get(DISABLE_TRACING_ARG, False):

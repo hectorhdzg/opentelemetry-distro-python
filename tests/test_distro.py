@@ -996,9 +996,7 @@ class TestA365DisablesWebInstrumentations(unittest.TestCase):
     """When enable_a365=True, web/DB instrumentations are off by default."""
 
     _WEB_DB_LIBS = _A365_DISABLED_INSTRUMENTATIONS
-    _GENAI_LIBS = tuple(
-        lib for lib in _SUPPORTED_INSTRUMENTED_LIBRARIES if lib not in _A365_DISABLED_INSTRUMENTATIONS
-    )
+    _GENAI_LIBS = tuple(lib for lib in _SUPPORTED_INSTRUMENTED_LIBRARIES if lib not in _A365_DISABLED_INSTRUMENTATIONS)
 
     @patch("microsoft.opentelemetry._distro._setup_instrumentations")
     @patch("microsoft.opentelemetry._distro._setup_logging")
@@ -1068,9 +1066,7 @@ class TestA365DisablesWebInstrumentations(unittest.TestCase):
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_a365_defaults_skipped_when_azure_monitor_also_enabled(
-        self, _trc, _met, _log, setup_inst, _az
-    ):
+    def test_a365_defaults_skipped_when_azure_monitor_also_enabled(self, _trc, _met, _log, setup_inst, _az):
         """When both enable_a365 and enable_azure_monitor are True, the
         non-A365 (original) defaults are preserved so web/HTTP libs stay on."""
         use_microsoft_opentelemetry(

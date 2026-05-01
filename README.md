@@ -69,7 +69,7 @@ use_microsoft_opentelemetry(
 )
 ```
 
-See the [A365 guide](docs/A365_DOCUMENTATION.md) for A365-specific configuration.
+See the [A365 guide](A365_DOCUMENTATION.md) for A365-specific configuration.
 
 ---
 
@@ -109,13 +109,13 @@ See the [A365 guide](docs/A365_DOCUMENTATION.md) for A365-specific configuration
 | `a365_use_s2s_endpoint` | `bool` | `False` | Use the S2S endpoint. |
 | `a365_suppress_invoke_agent_input` | `bool` | `False` | Strip input messages from InvokeAgent spans. |
 | `a365_enable_observability_exporter` | `bool` | `None` | Enable the A365 HTTP exporter. Also read from `ENABLE_A365_OBSERVABILITY_EXPORTER` env var. Defaults to `false` when neither is set. |
-| `a365_observability_scope_override` | `str` | `False` | Override the default Entra scope used by the built-in token resolvers. Also read from `A365_OBSERVABILITY_SCOPE_OVERRIDE`. |
+| `a365_observability_scope_override` | `str` | `None` | Override the default Entra scope used by the built-in token resolvers. Also read from `A365_OBSERVABILITY_SCOPE_OVERRIDE`. |
 | `a365_max_queue_size` | `int` | `2048` | Maximum queue size for the A365 batch span processor. |
 | `a365_scheduled_delay_ms` | `int` | `5000` | Delay between A365 export batches (ms). |
 | `a365_exporter_timeout_ms` | `int` | `30000` | Timeout for a single A365 export operation (ms). |
 | `a365_max_export_batch_size` | `int` | `512` | Maximum batch size for a single A365 export operation. |
 
-> For A365 token resolver patterns, baggage, and scope classes, see the [A365 guide](docs/A365_DOCUMENTATION.md).
+> For A365 token resolver patterns, baggage, and scope classes, see the [A365 guide](A365_DOCUMENTATION.md).
 
 ### Sampling
 
@@ -242,15 +242,15 @@ following instrumentations by default** when `enable_a365=True`:
 | `urllib3` | disabled |
 | `azure_sdk` | disabled |
 | `openai` | enabled |
+| `openai_agents` | enabled |
+| `langchain` | enabled |
+| `semantic_kernel` | enabled |
+| `agent_framework` | enabled |
 
 > **Note:** When both `enable_a365=True` and `enable_azure_monitor=True` are
 > set, the original (non-A365) defaults are used and the disabled libraries
 > above remain **enabled** so Azure Monitor continues to receive web/HTTP
 > telemetry.
-| `openai_agents` | enabled |
-| `langchain` | enabled |
-| `semantic_kernel` | enabled |
-| `agent_framework` | enabled |
 
 You can re-enable any of these explicitly via `instrumentation_options`:
 
@@ -295,15 +295,14 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 ```
 
-For A365-specific issues, see the [A365 guide](docs/A365_DOCUMENTATION.md) and the [official troubleshooting docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/troubleshooting).
+For A365-specific issues, see the [A365 guide](A365_DOCUMENTATION.md) and the [official troubleshooting docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/troubleshooting).
 
-The Azure Monitor exporter raises exceptions defined in [Azure Core](https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/core/azure-core/README.md#azure-core-library-exceptions).
 
 ## Next Steps
 
-- [Agent 365 Observability guide](docs/A365_DOCUMENTATION.md)
-- [Azure Monitor OpenTelemetry docs](https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-enable?tabs=python)
-- [A365 observability docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/observability?tabs=python)
+- [Agent 365 Observability guide](A365_DOCUMENTATION.md)
+- [Azure Monitor](https://learn.microsoft.com/en-us/azure/azure-monitor/fundamentals/overview)
+- [Microsoft OpenTelemetry SDK docs](https://learn.microsoft.com/en-us/microsoft-agent-365/developer/microsoft-opentelemetry?tabs=python)
 - [OpenTelemetry Python docs](https://opentelemetry.io/docs/instrumentation/python/)
 - [Samples](./samples/)
 
