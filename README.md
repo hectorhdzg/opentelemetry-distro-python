@@ -93,6 +93,7 @@ See the [A365 guide](A365_DOCUMENTATION.md) for A365-specific configuration.
 | `instrumentation_options` | `dict` | `None` | Per-library instrumentation enable/disable options. |
 | `enable_trace_based_sampling_for_logs` | `bool` | `False` | Enable trace-based sampling for logs. |
 | `enable_console` | `bool` | `False` | Console exporter (dev only). Auto-enables when no other exporter is active. |
+| `enable_sensitive_data` | `bool` | `False` | Enable sensitive data recording (prompts, tool arguments, results) for Agent Framework SDK instrumentation. |
 | **Azure Monitor** | | | |
 | `enable_azure_monitor` | `bool` | `False` | Enable Azure Monitor export. |
 | `azure_monitor_connection_string` | `str` | `None` | Connection string. Also read from `APPLICATIONINSIGHTS_CONNECTION_STRING`. |

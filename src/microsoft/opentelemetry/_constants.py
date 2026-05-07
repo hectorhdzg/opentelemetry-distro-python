@@ -86,6 +86,8 @@ _AZURE_MONITOR_KWARG_MAP = {
 
 # --- Spectra Sidecar Constants ---
 
+ENABLE_SENSITIVE_DATA_ARG = "enable_sensitive_data"
+
 ENABLE_SPECTRA_ARG = "enable_spectra"
 SPECTRA_ENDPOINT_ARG = "spectra_endpoint"
 SPECTRA_PROTOCOL_ARG = "spectra_protocol"

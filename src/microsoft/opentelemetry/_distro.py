@@ -29,6 +29,7 @@ from microsoft.opentelemetry._constants import (
     DISABLE_METRICS_ARG,
     DISABLE_TRACING_ARG,
     ENABLE_A365_ARG,
+    ENABLE_SENSITIVE_DATA_ARG,
     ENABLE_SPECTRA_ARG,
     SPECTRA_ENDPOINT_ARG,
     SPECTRA_PROTOCOL_ARG,
@@ -186,6 +187,9 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         ``SPECTRA_PROTOCOL`` env var. Defaults to ``"grpc"``.
     :keyword bool spectra_insecure:
         Use insecure (no TLS) connection. Defaults to True (localhost sidecar).
+    :keyword bool enable_sensitive_data:
+        Enable sensitive data recording (prompts, tool arguments, results) for
+        the Agent Framework SDK instrumentation. Defaults to False.
     :rtype: None
     """
 
@@ -208,6 +212,8 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     spectra_endpoint = kwargs.pop(SPECTRA_ENDPOINT_ARG, None)
     spectra_protocol = kwargs.pop(SPECTRA_PROTOCOL_ARG, None)
     spectra_insecure = kwargs.pop(SPECTRA_INSECURE_ARG, None)
+
+    enable_sensitive_data: bool = bool(kwargs.pop(ENABLE_SENSITIVE_DATA_ARG, False))
 
     # Separate Azure Monitor kwargs from generic OTel kwargs
     otel_kwargs: Dict[str, Any] = {k: v for k, v in kwargs.items() if k not in _AZURE_MONITOR_KWARG_MAP}
@@ -311,7 +317,7 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         set_logger_provider(logger_provider)
 
     # ---- Instrumentations (always, after providers are set) ----
-    _setup_instrumentations(otel_kwargs)
+    _setup_instrumentations(otel_kwargs, **{ENABLE_SENSITIVE_DATA_ARG: enable_sensitive_data})
 
     # ---- SDKStats manager (after providers, before returning) ----
     _initialize_sdkstats(enable_azure_monitor)
@@ -670,7 +676,7 @@ def _is_instrumentation_enabled(otel_kwargs: Dict[str, Any], lib_name: str) -> b
     return lib_options["enabled"] is True
 
 
-def _setup_instrumentations(otel_kwargs: Dict[str, Any]) -> None:
+def _setup_instrumentations(otel_kwargs: Dict[str, Any], **kwargs: Any) -> None:
     """Discover and activate OTel instrumentations for supported libraries."""
     entry_point_finder = _EntryPointDistFinder()
     for entry_point in entry_points(group="opentelemetry_instrumentor"):
@@ -691,7 +697,7 @@ def _setup_instrumentations(otel_kwargs: Dict[str, Any]) -> None:
                 )
                 continue
             instrumentor: Any = entry_point.load()
-            instrumentor().instrument(skip_dep_check=True)
+            instrumentor().instrument(skip_dep_check=True, **kwargs)
             set_sdkstats_instrumentation_by_name(lib_name)
         except Exception as ex:  # pylint: disable=broad-except
             _logger.warning(

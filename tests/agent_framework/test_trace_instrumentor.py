@@ -88,7 +88,27 @@ class TestAgentFrameworkInstrumentor(unittest.TestCase):
             instrumentor = AgentFrameworkInstrumentor()
             instrumentor._instrument()
 
-        mock_enable.assert_called_once()
+        mock_enable.assert_called_once_with(enable_sensitive_data=False)
+        self.assertTrue(instrumentor._af_instrumentation_enabled)
+
+    @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
+    def test_instrument_enables_sensitive_data_when_kwarg_set(self, mock_get_provider):
+        """When enable_sensitive_data=True is passed as kwarg,
+        enable_instrumentation must be called with enable_sensitive_data=True."""
+        mock_get_provider.return_value = MagicMock()
+        mock_enable = MagicMock()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "agent_framework": MagicMock(),
+                "agent_framework.observability": MagicMock(enable_instrumentation=mock_enable),
+            },
+        ):
+            instrumentor = AgentFrameworkInstrumentor()
+            instrumentor._instrument(enable_sensitive_data=True)
+
+        mock_enable.assert_called_once_with(enable_sensitive_data=True)
         self.assertTrue(instrumentor._af_instrumentation_enabled)
 
     @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
@@ -188,7 +208,7 @@ class TestAgentFrameworkInstrumentor(unittest.TestCase):
                 instrumentor._instrument()
 
             # AF SDK enabled, span processor added, enricher NOT registered.
-            mock_enable.assert_called_once()
+            mock_enable.assert_called_once_with(enable_sensitive_data=False)
             self.assertTrue(instrumentor._af_instrumentation_enabled)
             mock_provider.add_span_processor.assert_called_once()
             self.assertFalse(instrumentor._owns_enricher)

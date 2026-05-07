@@ -35,10 +35,11 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
     def _instrument(self, **kwargs: Any) -> None:
         # Enable the Agent Framework SDK's built-in span generation so users
         # don't need to call enable_instrumentation() manually.
+        enable_sensitive_data = kwargs.get("enable_sensitive_data", False)
         try:
             from agent_framework.observability import enable_instrumentation
 
-            enable_instrumentation()
+            enable_instrumentation(enable_sensitive_data=enable_sensitive_data)
             self._af_instrumentation_enabled = True
         except ImportError as exc:
             _logger.debug(
