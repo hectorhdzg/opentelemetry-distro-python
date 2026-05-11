@@ -92,9 +92,22 @@ Supported instrumentors:
 | Library | Instrumentor | Package |
 |---|---|---|
 | Semantic Kernel | `SemanticKernelInstrumentor` | Bundled in distro |
-| OpenAI Agents SDK | Via `opentelemetry-instrumentation-openai-agents-v2` | Dependency of distro |
+| OpenAI Agents SDK | `A365OpenAIAgentsInstrumentor` (A365) / `opentelemetry-instrumentation-openai-agents-v2` (non-A365) | Bundled / Dependency |
 | Agent Framework | `AgentFrameworkInstrumentor` | Bundled in distro |
 | LangChain | `LangChainInstrumentor` | Bundled in distro |
+
+### OpenAI Agents SDK — Dual Instrumentation
+
+The distro ships **two** instrumentors for the OpenAI Agents SDK, selected automatically based on whether A365 is enabled:
+
+| Mode | Instrumentor | Span format |
+|---|---|---|
+| `enable_a365=True` | `A365OpenAIAgentsInstrumentor` (bundled) | A365 versioned envelope with `custom.parent.span.id`, per-message indexed attributes, detailed token counts, `graph_node_parent_id` for handoffs |
+| `enable_a365=False` | `opentelemetry-instrumentation-openai-agents-v2` (upstream) | Standard OpenTelemetry GenAI semantic conventions |
+
+The selection is automatic — no manual `instrument()` calls are needed. When `enable_a365=True`, the upstream instrumentor for `openai_agents` is **skipped** and the A365 instrumentor is used instead. All other instrumentors (LangChain, Semantic Kernel, etc.) are unaffected.
+
+> **Important:** When both `enable_a365=True` and `enable_azure_monitor=True` are set, Azure Monitor and OTLP exporters will see spans in the A365 format (versioned envelope) rather than upstream OTel format. This is expected — the A365 instrumentor writes to the global `TracerProvider`, so all attached exporters receive the same spans.
 
 ### Noisy Spans — A365-Only Mode
 

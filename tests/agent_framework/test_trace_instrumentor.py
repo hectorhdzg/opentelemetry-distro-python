@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT License.
+# pylint: disable=no-member
 
 """Tests for AgentFrameworkInstrumentor and AgentFrameworkSpanProcessor."""
 

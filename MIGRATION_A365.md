@@ -197,7 +197,11 @@ OpenAIAgentsTraceInstrumentor().instrument()
 # ✅ NEW — auto-instrumented by distro, no manual setup needed
 # Set ENABLE_A365_OBSERVABILITY_EXPORTER=true in env
 use_microsoft_opentelemetry(enable_a365=True)
-# OpenAI instrumentation is handled automatically
+# When enable_a365=True, the distro uses a bundled A365-specific instrumentor
+# (A365OpenAIAgentsInstrumentor) that produces the same A365 versioned envelope
+# format as the old OpenAIAgentsTraceInstrumentor. The upstream OTel instrumentor
+# (opentelemetry-instrumentation-openai-agents-v2) is skipped automatically.
+# When enable_a365=False, the upstream instrumentor is used instead.
 ```
 
 ### Extensions — Semantic Kernel (observability-extensions-semantic-kernel)

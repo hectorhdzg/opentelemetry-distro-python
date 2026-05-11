@@ -211,11 +211,13 @@ Microsoft OpenTelemetry automatically instruments the following libraries when i
 | `urllib` | HTTP client |
 | `urllib3` | HTTP client |
 | `openai` | GenAI |
-| `openai_agents` | GenAI |
+| `openai_agents` | GenAI (see note below) |
 | `langchain` | GenAI |
 | `semantic_kernel` | GenAI |
 | `agent_framework` | GenAI |
 | `azure_sdk` | Azure (enabled when Azure Monitor is active) |
+
+> **OpenAI Agents SDK:** The distro includes two instrumentors for `openai_agents`. When `enable_a365=True`, a bundled A365-specific instrumentor (`A365OpenAIAgentsInstrumentor`) is used, producing spans with the A365 versioned envelope format. When A365 is not enabled, the upstream `opentelemetry-instrumentation-openai-agents-v2` instrumentor is used with standard OTel semantic conventions. See [A365_DOCUMENTATION.md](A365_DOCUMENTATION.md) for details.
 
 Toggle individual instrumentations:
 
