@@ -330,6 +330,7 @@ HTTP-client instrumentations by default**. GenAI instrumentations stay enabled.
 | `django` | disabled |
 | `fastapi` | disabled |
 | `flask` | disabled |
+| `httpx` | disabled |
 | `psycopg2` | disabled |
 | `requests` | disabled |
 | `urllib` | disabled |

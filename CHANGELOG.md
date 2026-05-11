@@ -12,7 +12,7 @@
 - Console exporter for local development and debugging
 - SDK self-telemetry (sdkstats) for health and usage diagnostics
 - Auto-instrumentation support via OpenTelemetry distro entry point
-- Standard web-framework instrumentations (Django, FastAPI, Flask, requests, urllib, urllib3, psycopg2)
+- Standard web-framework instrumentations (Django, FastAPI, Flask, httpx, requests, urllib, urllib3, psycopg2)
 - Environment-variable-based configuration for all supported options
 - Spectra Collector sidecar support with graceful fallback
 - Browser SDK Loader integration for Azure Monitor
@@ -57,7 +57,7 @@
 - Ensure baggage properties propagate to child spans when the console exporter is chosen and A365 exporter is disabled
   ([#74](https://github.com/microsoft/opentelemetry-distro-python/pull/74))
 - Disable web-framework / HTTP-client instrumentations
-  (`django`, `fastapi`, `flask`, `psycopg2`, `requests`, `urllib`, `urllib3`,
+  (`django`, `fastapi`, `flask`, `httpx`, `psycopg2`, `requests`, `urllib`, `urllib3`,
   `azure_sdk`) by default when A365 is enabled. GenAI instrumentations
   (`langchain`, `openai`, `openai_agents`, `semantic_kernel`,
   `agent_framework`) remain enabled. Users can override either default via

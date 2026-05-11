@@ -66,6 +66,7 @@ class SdkStatsInstrumentation(IntFlag):
     PSYCOPG2 = 64
     REQUESTS = 1024
     FASTAPI = 4194304
+    HTTPX = 1 << 24
     URLLIB = 68719476736
     URLLIB3 = 137438953472
     OPENAI_V2 = 4503599627370496
@@ -83,6 +84,7 @@ _INSTRUMENTATION_NAME_MAP = {
     "psycopg2": SdkStatsInstrumentation.PSYCOPG2,
     "requests": SdkStatsInstrumentation.REQUESTS,
     "fastapi": SdkStatsInstrumentation.FASTAPI,
+    "httpx": SdkStatsInstrumentation.HTTPX,
     "urllib": SdkStatsInstrumentation.URLLIB,
     "urllib3": SdkStatsInstrumentation.URLLIB3,
     "openai": SdkStatsInstrumentation.OPENAI_V2,

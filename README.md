@@ -205,6 +205,7 @@ Microsoft OpenTelemetry automatically instruments the following libraries when i
 | `django` | Web framework |
 | `fastapi` | Web framework |
 | `flask` | Web framework |
+| `httpx` | HTTP client |
 | `psycopg2` | Database |
 | `requests` | HTTP client |
 | `urllib` | HTTP client |
@@ -237,6 +238,7 @@ following instrumentations by default** when `enable_a365=True`:
 | `django` | disabled |
 | `fastapi` | disabled |
 | `flask` | disabled |
+| `httpx` | disabled |
 | `psycopg2` | disabled |
 | `requests` | disabled |
 | `urllib` | disabled |
