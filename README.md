@@ -3,6 +3,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/microsoft-opentelemetry)](https://pypi.org/project/microsoft-opentelemetry/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python versions](https://img.shields.io/pypi/pyversions/microsoft-opentelemetry)](https://pypi.org/project/microsoft-opentelemetry/)
+[![API Reference](https://img.shields.io/badge/docs-API%20Reference-blue)](https://microsoft.github.io/opentelemetry-distro-python/)
 
 Python package for a Microsoft OpenTelemetry distribution that provides a single onboarding experience for observability across Azure Monitor, OTLP-compatible backends, and Microsoft Agent 365 integrations.
 
