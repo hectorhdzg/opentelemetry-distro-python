@@ -15,6 +15,7 @@ from microsoft.opentelemetry.a365.constants import (
     CHANNEL_LINK_KEY,
     CHANNEL_NAME_KEY,
 )
+from microsoft.opentelemetry.a365.hosting.scope_helpers.utils import resolve_sub_channel
 from microsoft.opentelemetry.a365.core.models.response import Response
 from microsoft.opentelemetry.a365.core.models.user_details import UserDetails
 from microsoft.opentelemetry.a365.core.request import Request
@@ -76,13 +77,13 @@ def _derive_channel(
     """Derive channel (name and link) from TurnContext."""
     channel_id = getattr(context.activity, "channel_id", None)
     channel_name: str | None = None
-    sub_channel: str | None = None
     if channel_id is not None:
-        if isinstance(channel_id, str):
-            channel_name = channel_id
-        elif hasattr(channel_id, "channel"):
+        if hasattr(channel_id, "channel"):
             channel_name = channel_id.channel
-            sub_channel = channel_id.sub_channel
+        elif isinstance(channel_id, str):
+            channel_name = channel_id
+
+    sub_channel = resolve_sub_channel(context.activity) if context.activity else None
     return {"name": channel_name, "link": sub_channel}
 
 

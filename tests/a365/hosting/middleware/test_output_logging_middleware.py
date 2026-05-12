@@ -7,12 +7,14 @@ import pytest
 from microsoft_agents.activity import (
     Activity,
     ChannelAccount,
+    ChannelId,
     ConversationAccount,
 )
 from microsoft_agents.hosting.core import TurnContext
 from microsoft.opentelemetry.a365.hosting.middleware.output_logging_middleware import (
     A365_PARENT_TRACEPARENT_KEY,
     OutputLoggingMiddleware,
+    _derive_channel,
 )
 
 
@@ -217,3 +219,56 @@ async def test_send_handler_rethrows_errors():
 
         mock_scope.record_error.assert_called_once_with(send_error)
         mock_scope.dispose.assert_called_once()
+
+
+def _make_channel_turn_context(
+    channel_id: str | ChannelId = "test-channel",
+    channel_data=None,
+) -> TurnContext:
+    """Create a TurnContext with specific channel_id and channel_data."""
+    activity = Activity(
+        type="message",
+        text="Hello",
+        from_property=ChannelAccount(
+            aad_object_id="caller-id",
+            name="Caller",
+            agentic_user_id="caller-upn",
+            tenant_id="caller-tenant-id",
+        ),
+        recipient=ChannelAccount(
+            tenant_id="tenant-123",
+            role="agenticAppInstance",
+            name="Agent One",
+            agentic_app_id="agent-app-id",
+            aad_object_id="agent-auid",
+            agentic_user_id="agent-upn",
+        ),
+        conversation=ConversationAccount(id="conv-id"),
+        service_url="https://example.com",
+        channel_id=channel_id,
+        channel_data=channel_data,
+    )
+    adapter = MagicMock()
+    return TurnContext(adapter, activity)
+
+
+def test_derive_channel_uses_product_context_from_channel_data():
+    """_derive_channel uses productContext from channel_data when sub_channel is not set."""
+    ctx = _make_channel_turn_context(
+        channel_id="test-channel",
+        channel_data={"productContext": "word"},
+    )
+    result = _derive_channel(ctx)
+    assert result["name"] == "test-channel"
+    assert result["link"] == "word"
+
+
+def test_derive_channel_sub_channel_takes_precedence_over_product_context():
+    """_derive_channel uses sub_channel when both sub_channel and productContext are present."""
+    ctx = _make_channel_turn_context(
+        channel_id=ChannelId(channel="teams", sub_channel="from-channel-id"),
+        channel_data={"productContext": "from-product-context"},
+    )
+    result = _derive_channel(ctx)
+    assert result["name"] == "teams"
+    assert result["link"] == "from-channel-id"
