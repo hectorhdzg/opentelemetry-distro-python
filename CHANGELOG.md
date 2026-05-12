@@ -1,5 +1,10 @@
 # Release History
 
+## Unreleased
+
+### Features Added
+- Add A365-specific OpenAI Agents SDK instrumentor (`A365OpenAIAgentsInstrumentor`). When `enable_a365=True`, the distro uses this bundled instrumentor instead of the upstream `opentelemetry-instrumentation-openai-agents-v2`, producing spans with the A365 versioned envelope format, `custom.parent.span.id`, per-message indexed attributes, detailed token counts, and `graph_node_parent_id` for handoffs.
+
 ## 1.1.0 (2026-05-11)
 
 ### Features Added

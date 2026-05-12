@@ -1110,9 +1110,7 @@ class TestGenAIMainAgentProcessorRegistration(unittest.TestCase):
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_processors_not_registered_when_azure_monitor_disabled(
-        self, tracing_mock, metrics_mock, logging_mock
-    ):
+    def test_processors_not_registered_when_azure_monitor_disabled(self, tracing_mock, metrics_mock, logging_mock):
         from microsoft.opentelemetry._genai.main_agent import (
             GenAIMainAgentLogRecordProcessor,
             GenAIMainAgentSpanProcessor,
@@ -1130,9 +1128,7 @@ class TestGenAIMainAgentProcessorRegistration(unittest.TestCase):
     @patch("microsoft.opentelemetry._distro._setup_logging")
     @patch("microsoft.opentelemetry._distro._setup_metrics")
     @patch("microsoft.opentelemetry._distro._setup_tracing")
-    def test_processors_not_registered_for_a365_only(
-        self, tracing_mock, metrics_mock, logging_mock, a365_mock
-    ):
+    def test_processors_not_registered_for_a365_only(self, tracing_mock, metrics_mock, logging_mock, a365_mock):
         from microsoft.opentelemetry._genai.main_agent import (
             GenAIMainAgentLogRecordProcessor,
             GenAIMainAgentSpanProcessor,

@@ -251,7 +251,7 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
     # ---- GenAI main-agent attribute propagation ----
     # Prepended to the processor lists so on_start/on_emit run BEFORE any
     # Batch* export processor appended below; this enriches once per
-    # span/log and is then visible to the Azure Monitor exporter. 
+    # span/log and is then visible to the Azure Monitor exporter.
     if enable_azure_monitor:
         if not otel_kwargs.get(DISABLE_TRACING_ARG, False):
             otel_kwargs[SPAN_PROCESSORS_ARG] = [
@@ -340,7 +340,7 @@ def use_microsoft_opentelemetry(**kwargs: object) -> None:  # pylint: disable=to
         set_logger_provider(logger_provider)
 
     # ---- Instrumentations (always, after providers are set) ----
-    _setup_instrumentations(otel_kwargs, **{ENABLE_SENSITIVE_DATA_ARG: enable_sensitive_data})
+    _setup_instrumentations(otel_kwargs, enable_a365=enable_a365, **{ENABLE_SENSITIVE_DATA_ARG: enable_sensitive_data})
 
     # ---- SDKStats manager (after providers, before returning) ----
     _initialize_sdkstats(enable_azure_monitor)
@@ -701,6 +701,7 @@ def _is_instrumentation_enabled(otel_kwargs: Dict[str, Any], lib_name: str) -> b
 
 def _setup_instrumentations(otel_kwargs: Dict[str, Any], **kwargs: Any) -> None:
     """Discover and activate OTel instrumentations for supported libraries."""
+    enable_a365: bool = kwargs.pop("enable_a365", False)
     entry_point_finder = _EntryPointDistFinder()
     for entry_point in entry_points(group="opentelemetry_instrumentor"):
         lib_name = entry_point.name
@@ -708,6 +709,12 @@ def _setup_instrumentations(otel_kwargs: Dict[str, Any], **kwargs: Any) -> None:
             continue
         if not _is_instrumentation_enabled(otel_kwargs, lib_name):
             _logger.debug("Instrumentation skipped for library %s", lib_name)
+            continue
+        # When A365 is enabled, use the A365-specific OpenAI Agents
+        # instrumentation instead of the upstream entry point so that
+        # spans carry the versioned message format A365 consumers expect.
+        if lib_name == "openai_agents" and enable_a365:
+            _setup_a365_openai_agents_instrumentation()
             continue
         try:
             entry_point_dist = entry_point_finder.dist_for(entry_point)  # type: ignore
@@ -728,3 +735,20 @@ def _setup_instrumentations(otel_kwargs: Dict[str, Any], **kwargs: Any) -> None:
                 lib_name,
                 exc_info=ex,
             )
+
+
+def _setup_a365_openai_agents_instrumentation() -> None:
+    """Register the A365 OpenAI Agents trace processor."""
+    try:
+        from microsoft.opentelemetry._genai._openai_agents._trace_instrumentor import (
+            A365OpenAIAgentsInstrumentor,
+        )
+
+        A365OpenAIAgentsInstrumentor().instrument()
+        set_sdkstats_instrumentation_by_name("openai_agents")
+        _logger.debug("A365 OpenAI Agents instrumentation enabled.")
+    except Exception as ex:  # pylint: disable=broad-except
+        _logger.warning(
+            "Failed to set up A365 OpenAI Agents instrumentation.",
+            exc_info=ex,
+        )

@@ -56,6 +56,9 @@ langchain = [
 agent-framework = [
     "agent-framework>=1.0.0",
 ]
+openai-agents = [
+    "openai-agents>=0.0.7",
+]
 test = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
