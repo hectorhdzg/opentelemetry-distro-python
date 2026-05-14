@@ -53,7 +53,7 @@ from opentelemetry.util.genai.types import (
 )
 
 try:
-    from opentelemetry.util.genai.types import ToolCallRequest as ToolCall  # >=0.4b0
+    from opentelemetry.util.genai.types import ToolCallRequest as ToolCall  # type: ignore[attr-defined]  # >=0.4b0
 except ImportError:
     from opentelemetry.util.genai.types import ToolCall  # type: ignore[no-redef,attr-defined]  # 0.3b0
 
