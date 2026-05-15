@@ -84,3 +84,30 @@ jobs:
 
       - name: Run tests
         run: tox -e ${{ matrix.tox-env }}
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tox
+        run: python -m pip install --upgrade pip tox
+
+      - name: Run integration tests
+        env:
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOYMENT }}
+          AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
+        run: |
+          python -m pip install -r dev_requirements.txt
+          python -m pip install -e .[langchain,agent-framework]
+          python -m pytest -v tests/a365/integration

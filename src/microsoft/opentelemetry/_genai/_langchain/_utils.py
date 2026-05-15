@@ -772,25 +772,38 @@ def _extract_structured_input_messages(
     if not inputs or not isinstance(inputs, Mapping):
         return []
     multiple_messages = inputs.get("messages")
-    if not multiple_messages or not isinstance(multiple_messages, Iterable):
-        return []
-    first_messages = next(iter(multiple_messages), None)
-    if first_messages is None:
-        return []
-    # Normalise to a list
-    if not isinstance(first_messages, list):
-        first_messages = [first_messages]
-    results: list[InputMessage] = []
-    for msg in first_messages:
-        role = _langchain_role(msg)
-        parts: list[Any] = []
-        content = _langchain_content(msg)
-        if content:
-            parts.append(Text(content=content))
-        parts.extend(_langchain_tool_calls(msg))
-        if parts:
-            results.append(InputMessage(role=role, parts=parts))
-    return results
+    if multiple_messages and isinstance(multiple_messages, Iterable):
+        first_messages = next(iter(multiple_messages), None)
+        if first_messages is not None:
+            # Normalise to a list
+            if not isinstance(first_messages, list):
+                first_messages = [first_messages]
+            results: list[InputMessage] = []
+            for msg in first_messages:
+                role = _langchain_role(msg)
+                parts: list[Any] = []
+                content = _langchain_content(msg)
+                if content:
+                    parts.append(Text(content=content))
+                parts.extend(_langchain_tool_calls(msg))
+                if parts:
+                    results.append(InputMessage(role=role, parts=parts))
+            if results:
+                return results
+
+    # Fallback: LLM runs use "prompts" (list of formatted prompt strings)
+    p = inputs.get("prompts")
+    if isinstance(p, list):
+        results = []
+        for item in p:
+            if item:
+                results.append(InputMessage(role="user", parts=[Text(content=str(item))]))
+        if results:
+            return results
+    elif isinstance(p, str) and p:
+        return [InputMessage(role="user", parts=[Text(content=p)])]
+
+    return []
 
 
 def _extract_structured_output_messages(
