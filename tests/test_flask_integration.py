@@ -17,6 +17,7 @@ import pytest
 
 flask = pytest.importorskip("flask")
 
+# pylint: disable=wrong-import-position
 from opentelemetry.instrumentation.flask import FlaskInstrumentor  # noqa: E402
 from opentelemetry.sdk.resources import Resource  # noqa: E402
 from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
@@ -26,6 +27,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from microsoft.opentelemetry._constants import (  # noqa: E402
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
+
+# pylint: enable=wrong-import-position
 
 
 class TestFlaskInstrumentationConfig(unittest.TestCase):

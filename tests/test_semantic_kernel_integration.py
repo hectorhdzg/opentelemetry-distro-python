@@ -19,12 +19,15 @@ import pytest
 
 pytest.importorskip("semantic_kernel")
 
+# pylint: disable=wrong-import-position
 from microsoft.opentelemetry._semantic_kernel._span_processor import SemanticKernelSpanProcessor  # noqa: E402
 from microsoft.opentelemetry._semantic_kernel._trace_instrumentor import SemanticKernelInstrumentor  # noqa: E402
 
 from microsoft.opentelemetry._constants import (  # noqa: E402
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
+
+# pylint: enable=wrong-import-position
 
 
 class TestSemanticKernelInstrumentationConfig(unittest.TestCase):

@@ -17,15 +17,14 @@ import pytest
 
 agents = pytest.importorskip("agents")
 
+# pylint: disable=wrong-import-position
 from opentelemetry.instrumentation.openai_agents import OpenAIAgentsInstrumentor  # noqa: E402
-from opentelemetry.sdk.resources import Resource  # noqa: E402
-from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor  # noqa: E402
-from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: E402
 
 from microsoft.opentelemetry._constants import (  # noqa: E402
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
+
+# pylint: enable=wrong-import-position
 
 
 class TestOpenAIAgentsInstrumentationConfig(unittest.TestCase):

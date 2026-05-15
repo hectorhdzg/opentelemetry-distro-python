@@ -18,6 +18,7 @@ import pytest
 fastapi = pytest.importorskip("fastapi")
 starlette_testclient = pytest.importorskip("starlette.testclient")
 
+# pylint: disable=wrong-import-position
 from fastapi import FastAPI  # noqa: E402
 from starlette.testclient import TestClient  # noqa: E402
 
@@ -30,6 +31,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from microsoft.opentelemetry._constants import (  # noqa: E402
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
+
+# pylint: enable=wrong-import-position
 
 
 def _make_fastapi_app():

@@ -18,6 +18,7 @@ import pytest
 
 pytest.importorskip("langchain_core")
 
+# pylint: disable=wrong-import-position
 from microsoft.opentelemetry._genai._langchain._tracer_instrumentor import (  # noqa: E402
     LangChainInstrumentor,
 )
@@ -25,6 +26,8 @@ from microsoft.opentelemetry._genai._langchain._tracer_instrumentor import (  # 
 from microsoft.opentelemetry._constants import (  # noqa: E402
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
+
+# pylint: enable=wrong-import-position
 
 
 class TestLangChainInstrumentationConfig(unittest.TestCase):
@@ -132,7 +135,7 @@ class TestLangChainCallbackPatching(unittest.TestCase):
         inst = LangChainInstrumentor()
         inst._instrument()
 
-        from langchain_core.callbacks import CallbackManager
+        from langchain_core.callbacks import CallbackManager  # noqa: F811 pylint: disable=unused-import
 
         # After instrumentation, creating a new CallbackManager should include
         # the OTel tracer in its handlers (or the __init__ should be wrapped).

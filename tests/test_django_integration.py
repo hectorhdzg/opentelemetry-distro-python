@@ -17,11 +17,14 @@ import pytest
 
 django = pytest.importorskip("django")
 
+# pylint: disable=wrong-import-position
 from opentelemetry.instrumentation.django import DjangoInstrumentor  # noqa: E402
 
 from microsoft.opentelemetry._constants import (  # noqa: E402
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
+
+# pylint: enable=wrong-import-position
 
 
 class TestDjangoInstrumentationConfig(unittest.TestCase):

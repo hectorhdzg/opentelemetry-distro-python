@@ -17,6 +17,7 @@ import pytest
 
 openai = pytest.importorskip("openai")
 
+# pylint: disable=wrong-import-position
 from opentelemetry.instrumentation.openai_v2 import OpenAIInstrumentor  # noqa: E402
 from opentelemetry.sdk.resources import Resource  # noqa: E402
 from opentelemetry.sdk.trace import TracerProvider  # noqa: E402
@@ -26,6 +27,8 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from microsoft.opentelemetry._constants import (  # noqa: E402
     _SUPPORTED_INSTRUMENTED_LIBRARIES,
 )
+
+# pylint: enable=wrong-import-position
 
 
 class TestOpenAIInstrumentationConfig(unittest.TestCase):
@@ -126,7 +129,7 @@ class TestOpenAISpanGeneration(unittest.TestCase):
                     model="gpt-4o",
                     messages=[{"role": "user", "content": "Hi"}],
                 )
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass  # API call may fail; we still get spans from the wrapper
 
         self.provider.force_flush()
