@@ -20,8 +20,25 @@ from microsoft.opentelemetry.a365.core.constants import (
     GEN_AI_CALLER_AGENT_VERSION_KEY,
     GEN_AI_CALLER_CLIENT_IP_KEY,
     GEN_AI_CONVERSATION_ID_KEY,
+    GEN_AI_DATA_SOURCE_ID_KEY,
     GEN_AI_INPUT_MESSAGES_KEY,
     GEN_AI_OUTPUT_MESSAGES_KEY,
+    GEN_AI_OUTPUT_TYPE_KEY,
+    GEN_AI_REQUEST_CHOICE_COUNT_KEY,
+    GEN_AI_REQUEST_FREQUENCY_PENALTY_KEY,
+    GEN_AI_REQUEST_MAX_TOKENS_KEY,
+    GEN_AI_REQUEST_MODEL_KEY,
+    GEN_AI_REQUEST_PRESENCE_PENALTY_KEY,
+    GEN_AI_REQUEST_SEED_KEY,
+    GEN_AI_REQUEST_STOP_SEQUENCES_KEY,
+    GEN_AI_REQUEST_TEMPERATURE_KEY,
+    GEN_AI_REQUEST_TOP_P_KEY,
+    GEN_AI_RESPONSE_FINISH_REASONS_KEY,
+    GEN_AI_SYSTEM_INSTRUCTIONS_KEY,
+    GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS_KEY,
+    GEN_AI_USAGE_CACHE_WRITE_INPUT_TOKENS_KEY,
+    GEN_AI_USAGE_INPUT_TOKENS_KEY,
+    GEN_AI_USAGE_OUTPUT_TOKENS_KEY,
     INVOKE_AGENT_OPERATION_NAME,
     SERVER_ADDRESS_KEY,
     SERVER_PORT_KEY,
@@ -30,11 +47,14 @@ from microsoft.opentelemetry.a365.core.constants import (
     USER_ID_KEY,
     USER_NAME_KEY,
 )
+from microsoft.opentelemetry.a365.core.gen_ai_request_parameters import GenAiRequestParameters
+from microsoft.opentelemetry.a365.core.gen_ai_response_parameters import GenAiResponseParameters
 from microsoft.opentelemetry.a365.core.invoke_agent_details import InvokeAgentScopeDetails
 from microsoft.opentelemetry.a365.core.message_utils import (
     normalize_input_messages,
     normalize_output_messages,
     serialize_messages,
+    serialize_system_instructions,
 )
 from microsoft.opentelemetry.a365.core.models.caller_details import CallerDetails
 from microsoft.opentelemetry.a365.core.models.messages import InputMessagesParam, OutputMessagesParam
@@ -129,6 +149,11 @@ class InvokeAgentScope(OpenTelemetryScope):
             if endpoint.port and endpoint.port != 443:
                 self.set_tag_maybe(SERVER_PORT_KEY, endpoint.port)
 
+        if scope_details.request_parameters:
+            self._record_request_parameters(scope_details.request_parameters)
+        if scope_details.response_parameters:
+            self._record_response_parameters(scope_details.response_parameters)
+
         # Set request metadata
         if request.channel:
             self.set_tag_maybe(CHANNEL_NAME_KEY, request.channel.name)
@@ -182,6 +207,10 @@ class InvokeAgentScope(OpenTelemetryScope):
         """
         self.record_output_messages([response])
 
+    def record_response_parameters(self, parameters: GenAiResponseParameters) -> None:
+        """Record GenAI response parameters that are only known after completion."""
+        self._record_response_parameters(parameters)
+
     def record_input_messages(self, messages: InputMessagesParam) -> None:
         """Record the input messages for telemetry tracking.
 
@@ -205,3 +234,40 @@ class InvokeAgentScope(OpenTelemetryScope):
         """
         wrapper = normalize_output_messages(messages)
         self.set_tag_maybe(GEN_AI_OUTPUT_MESSAGES_KEY, serialize_messages(wrapper))
+
+    def _record_request_parameters(self, parameters: GenAiRequestParameters) -> None:
+        self.set_tag_maybe(GEN_AI_REQUEST_MODEL_KEY, parameters.model)
+        self.set_tag_maybe(GEN_AI_REQUEST_SEED_KEY, parameters.seed)
+        self.set_tag_maybe(GEN_AI_REQUEST_CHOICE_COUNT_KEY, parameters.choice_count)
+        self.set_tag_maybe(GEN_AI_REQUEST_FREQUENCY_PENALTY_KEY, parameters.frequency_penalty)
+        self.set_tag_maybe(GEN_AI_REQUEST_MAX_TOKENS_KEY, parameters.max_tokens)
+        self.set_tag_maybe(GEN_AI_REQUEST_PRESENCE_PENALTY_KEY, parameters.presence_penalty)
+        self.set_tag_maybe(
+            GEN_AI_REQUEST_STOP_SEQUENCES_KEY,
+            tuple(parameters.stop_sequences) if parameters.stop_sequences is not None else None,
+        )
+        self.set_tag_maybe(GEN_AI_REQUEST_TEMPERATURE_KEY, parameters.temperature)
+        self.set_tag_maybe(GEN_AI_REQUEST_TOP_P_KEY, parameters.top_p)
+        self.set_tag_maybe(GEN_AI_DATA_SOURCE_ID_KEY, parameters.data_source_id)
+        self.set_tag_maybe(GEN_AI_OUTPUT_TYPE_KEY, parameters.output_type)
+        if parameters.system_instructions is not None:
+            self.set_tag_maybe(
+                GEN_AI_SYSTEM_INSTRUCTIONS_KEY,
+                serialize_system_instructions(parameters.system_instructions),
+            )
+
+    def _record_response_parameters(self, parameters: GenAiResponseParameters) -> None:
+        self.set_tag_maybe(
+            GEN_AI_RESPONSE_FINISH_REASONS_KEY,
+            tuple(parameters.finish_reasons) if parameters.finish_reasons is not None else None,
+        )
+        self.set_tag_maybe(GEN_AI_USAGE_INPUT_TOKENS_KEY, parameters.input_tokens)
+        self.set_tag_maybe(GEN_AI_USAGE_OUTPUT_TOKENS_KEY, parameters.output_tokens)
+        self.set_tag_maybe(
+            GEN_AI_USAGE_CACHE_WRITE_INPUT_TOKENS_KEY,
+            parameters.cache_write_input_tokens,
+        )
+        self.set_tag_maybe(
+            GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS_KEY,
+            parameters.cache_read_input_tokens,
+        )

@@ -1,4 +1,11 @@
 # Release History
+# Unreleased
+### Features Added
+- Add Python-native `InvokeAgentScope` request and response parameter models
+  that emit OpenTelemetry GenAI semantic attributes, including structured
+  system instructions and cache read/write token counts, introduced by .NET
+  PR #120.
+
 # 1.3.9 (2026-09-09)
 ### Features Added
 - Update OpenTelemetry dependencies to latest versions, bump `langchain-core` minimum version to address S360, and support the new `httpx2` entry point exposed by `opentelemetry-instrumentation-httpx`.

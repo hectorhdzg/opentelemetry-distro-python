@@ -13,7 +13,7 @@ import json
 import logging
 from dataclasses import asdict
 from enum import Enum
-from typing import Union
+from typing import Any, Sequence, Union
 
 from microsoft.opentelemetry.a365.core.models.messages import (
     ChatMessage,
@@ -105,6 +105,15 @@ def _message_dict_factory(items: list[tuple[str, object]]) -> dict[str, object]:
     return {k: (v.value if isinstance(v, Enum) else v) for k, v in items if v is not None}
 
 
+def _serialize_dataclasses(items: Sequence[Any]) -> str:
+    """Serialize dataclass instances as a JSON array."""
+    return json.dumps(
+        [asdict(item, dict_factory=_message_dict_factory) for item in items],
+        default=str,
+        ensure_ascii=False,
+    )
+
+
 def serialize_messages(
     wrapper: Union[InputMessages, OutputMessages],
 ) -> str:
@@ -117,12 +126,7 @@ def serialize_messages(
     message parts contain non-JSON-serializable values.
     """
     try:
-        serialized_list = [asdict(msg, dict_factory=_message_dict_factory) for msg in wrapper.messages]
-        return json.dumps(
-            serialized_list,
-            default=str,
-            ensure_ascii=False,
-        )
+        return _serialize_dataclasses(wrapper.messages)
     except Exception:
         logger.warning("Failed to serialize messages; using fallback.", exc_info=True)
         messages = getattr(wrapper, "messages", [])
@@ -140,3 +144,14 @@ def serialize_messages(
         if isinstance(wrapper, OutputMessages):
             fallback_msg["finish_reason"] = "error"
         return json.dumps([fallback_msg], ensure_ascii=False)
+
+
+def serialize_system_instructions(parts: Sequence[TextPart]) -> str:
+    """Serialize OTel system-instruction parts as a JSON array."""
+    try:
+        return _serialize_dataclasses(parts)
+    except Exception:
+        logger.warning("Failed to serialize system instructions; using fallback.", exc_info=True)
+        count = len(parts)
+        noun = "instruction part" if count == 1 else "instruction parts"
+        return _serialize_dataclasses([TextPart(content=f"[serialization failed: {count} {noun}]")])

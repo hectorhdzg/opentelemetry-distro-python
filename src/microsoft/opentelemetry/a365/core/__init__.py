@@ -15,6 +15,8 @@ from microsoft.opentelemetry.a365.core.guardrail_details import GuardrailDetails
 from microsoft.opentelemetry.a365.core.guardrail_finding import GuardrailFinding
 from microsoft.opentelemetry.a365.core.guardrail_risk_severity import GuardrailRiskSeverity
 from microsoft.opentelemetry.a365.core.guardrail_target_type import GuardrailTargetType
+from microsoft.opentelemetry.a365.core.gen_ai_request_parameters import GenAiRequestParameters
+from microsoft.opentelemetry.a365.core.gen_ai_response_parameters import GenAiResponseParameters
 from microsoft.opentelemetry.a365.core.inference_call_details import InferenceCallDetails
 from microsoft.opentelemetry.a365.core.models.service_endpoint import ServiceEndpoint
 from microsoft.opentelemetry.a365.core.inference_operation_type import InferenceOperationType
@@ -84,6 +86,8 @@ __all__ = [
     "SpanDetails",
     "InferenceCallDetails",
     "ServiceEndpoint",
+    "GenAiRequestParameters",
+    "GenAiResponseParameters",
     # Enums
     "InferenceOperationType",
     "ToolType",

@@ -21,11 +21,13 @@ Core tracing primitives — scopes, configuration, data models, and internal uti
 | `agent_details.py` | `AgentDetails` dataclass — metadata about an AI agent (ID, name, description, blueprint/platform IDs, tenant, version). |
 | `channel.py` | `Channel` dataclass — channel context (name, link) for agent execution. |
 | `constants.py` | Core-level constants for span operations, OTel conventions, feature switches, and error types. |
+| `gen_ai_request_parameters.py` | GenAI request parameter models for generation settings and related semantic attributes. |
+| `gen_ai_response_parameters.py` | GenAI response parameter models for finish reasons and token usage attributes. |
 | `execute_tool_scope.py` | `ExecuteToolScope` — tracing scope for AI tool executions. Records tool name, arguments, call ID, type, and endpoint. |
 | `inference_call_details.py` | `InferenceCallDetails` dataclass — LLM call metadata (model, provider, token counts, finish reasons, endpoint). |
 | `inference_operation_type.py` | `InferenceOperationType` enum — Chat, TextCompletion, GenerateContent. |
 | `inference_scope.py` | `InferenceScope` — tracing scope for LLM/AI inference operations. Records input/output messages, model details, token usage, and user info. |
-| `invoke_agent_details.py` | `InvokeAgentScopeDetails` dataclass — configuration for agent invocation tracing (endpoint). |
+| `invoke_agent_details.py` | `InvokeAgentScopeDetails` dataclass — configuration for agent invocation tracing (endpoint, optional request parameters, optional response parameters). |
 | `invoke_agent_scope.py` | `InvokeAgentScope` — tracing scope for agent invocations. Records request/response, caller details (human and agent-to-agent), channel, and endpoint info. |
 | `message_utils.py` | Conversion and serialization helpers for OTel gen-ai message format. Normalizes strings/lists to structured `InputMessages`/`OutputMessages`. |
 | `opentelemetry_scope.py` | `OpenTelemetryScope` — base class for all tracing scopes. Manages span creation, attribute setting, context management, and baggage building. |
