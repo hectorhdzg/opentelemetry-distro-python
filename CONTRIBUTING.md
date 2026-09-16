@@ -24,6 +24,18 @@ python -m venv .venv
 python -m pip install -e .[dev] tox
 ```
 
+### Using `uv.lock`
+
+The committed `uv.lock` is generated through Microsoft's package proxy rather than directly from the Python Package Index (PyPI). Microsoft contributors are required to use this proxy so packages are subject to Microsoft's security and vulnerability policies. Consequently, the lockfile records Microsoft registry and artifact URLs that might not be accessible outside Microsoft.
+
+Contributors who cannot access the Microsoft proxy should regenerate the lockfile using an accessible package index. For example, to use official PyPI:
+
+```bash
+uv lock --refresh --default-index https://pypi.org/simple
+```
+
+Regenerate rather than manually replacing only the registry value: `uv.lock` also contains index-specific source distribution and wheel URLs. The newly generated lockfile can be used locally with `uv sync`.
+
 ## Running Checks with Tox
 
 Run all environments at once or pick individual ones.
