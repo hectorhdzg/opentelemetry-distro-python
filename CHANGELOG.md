@@ -5,6 +5,8 @@
   that emit OpenTelemetry GenAI semantic attributes, including structured
   system instructions and cache read/write token counts, introduced by .NET
   PR #120.
+- Remove optional dependency for langchain-core and document guidance for installation
+  ([#269](https://github.com/microsoft/opentelemetry-distro-python/pull/269))
 
 # 1.3.9 (2026-09-09)
 ### Features Added

@@ -48,9 +48,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-langchain = [
-    "langchain-core>=1.6.0",
-]
 agent-framework = [
     "agent-framework>=1.4.0",
 ]

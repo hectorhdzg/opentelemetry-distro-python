@@ -5,8 +5,11 @@ These samples demonstrate how to use LangChain with OpenTelemetry tracing export
 ## Prerequisites
 
 - Python 3.10+
+- Install `langchain-core` separately (`pip install langchain-core`)
 - An Azure OpenAI resource (or an OpenAI API key)
 - An Application Insights resource (for the connection string)
+
+`microsoft-opentelemetry` does not install `langchain-core`. The LangChain instrumentation is enabled only when `langchain-core` is available in the application environment.
 
 ## Configuration
 
