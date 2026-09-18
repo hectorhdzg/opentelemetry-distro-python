@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Collection
+from inspect import Parameter, signature
 from typing import Any
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor  # type: ignore[attr-defined]
@@ -36,10 +37,22 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
         # Enable the Agent Framework SDK's built-in span generation so users
         # don't need to call enable_instrumentation() manually.
         enable_sensitive_data = kwargs.get("enable_sensitive_data", False)
+        enable_message_events = kwargs.get("enable_message_events", True)
         try:
             from agent_framework.observability import enable_instrumentation
 
-            enable_instrumentation(enable_sensitive_data=enable_sensitive_data)
+            enable_kwargs = {"enable_sensitive_data": enable_sensitive_data}
+            parameters = signature(enable_instrumentation).parameters
+            if "enable_message_events" in parameters or any(
+                parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values()
+            ):
+                enable_kwargs["enable_message_events"] = enable_message_events
+            else:
+                _logger.debug(
+                    "Agent Framework SDK does not support configuring message events. "
+                    "Upgrade Agent Framework to use enable_message_events."
+                )
+            enable_instrumentation(**enable_kwargs)
             self._af_instrumentation_enabled = True
         except ImportError as exc:
             _logger.debug(
