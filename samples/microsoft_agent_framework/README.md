@@ -7,7 +7,6 @@ Learn more about the Microsoft Agent Framework in our [GitHub repository](https:
 ## Prerequisites
 
 - Python 3.10+
-- Agent Framework 1.19.0+ for message-event configuration
 - A [Foundry project](https://learn.microsoft.com/en-us/azure/foundry/tutorials/quickstart-create-foundry-resources?tabs=portal) endpoint and model
 - (Optional) An [Application Insights](https://learn.microsoft.com/en-us/azure/azure-monitor/app/create-workspace-resource?tabs=portal) resource (for the connection string)
 - (Optional) An [Aspire Dashboard](https://aspire.dev/dashboard/overview/#standalone-mode) to visualize traces (if you want to use a local OpenTelemetry Collector)
