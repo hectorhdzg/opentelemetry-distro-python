@@ -271,16 +271,31 @@ Toggle individual instrumentations:
 
 ```python
 use_microsoft_opentelemetry(
+    enable_sensitive_data=True,
     instrumentation_options={
         "flask": {"enabled": False},
         "openai": {"enabled": True},
-        "agent_framework": {"enable_message_events": False},
+        "agent_framework": {
+            "enabled": True,
+            "enable_message_events": True,
+            "force": False,
+        },
     },
 )
 ```
 
-Agent Framework message events are enabled by default. Set
-`enable_message_events` to `False` as shown above to disable them.
+Agent Framework supports the following configuration:
+
+| Option | Default | Description |
+|---|---|---|
+| `enabled` | `True` | Enable automatic Agent Framework instrumentation. |
+| `enable_sensitive_data` | `False` | Enable prompt, completion, tool argument, and tool result capture. Set this as a top-level `use_microsoft_opentelemetry()` option. |
+| `enable_message_events` | `True` | Emit baseline OpenTelemetry GenAI message events when sensitive-data capture is enabled. |
+| `force` | `False` | Re-enable Agent Framework instrumentation after it was explicitly disabled with `disable_instrumentation()`. |
+
+Set Agent Framework-specific values under
+`instrumentation_options["agent_framework"]`. The shared
+`enable_sensitive_data` option is configured at the top level.
 
 ### Default Instrumentations When `enable_a365=True`
 

@@ -136,6 +136,28 @@ class TestAgentFrameworkInstrumentor(unittest.TestCase):
         self.assertTrue(instrumentor._af_instrumentation_enabled)
 
     @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
+    def test_instrument_can_force_reenable_instrumentation(self, mock_get_provider):
+        mock_get_provider.return_value = MagicMock()
+        mock_enable = MagicMock()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "agent_framework": MagicMock(),
+                "agent_framework.observability": MagicMock(enable_instrumentation=mock_enable),
+            },
+        ):
+            instrumentor = AgentFrameworkInstrumentor()
+            instrumentor._instrument(force=True)
+
+        mock_enable.assert_called_once_with(
+            enable_sensitive_data=False,
+            enable_message_events=True,
+            force=True,
+        )
+        self.assertTrue(instrumentor._af_instrumentation_enabled)
+
+    @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
     def test_instrument_supports_legacy_enable_instrumentation_signature(self, mock_get_provider):
         mock_get_provider.return_value = MagicMock()
         mock_enable = MagicMock()
