@@ -29,6 +29,18 @@ class TestAgentFrameworkInstrumentationConfig(unittest.TestCase):
     def test_agent_framework_in_supported_libraries(self):
         self.assertIn("agent_framework", _SUPPORTED_INSTRUMENTED_LIBRARIES)
 
+    def test_enable_instrumentation_supports_message_events(self):
+        """The installed Agent Framework must expose the API required by this integration."""
+        from inspect import signature
+
+        from agent_framework.observability import enable_instrumentation
+
+        self.assertIn(
+            "enable_message_events",
+            signature(enable_instrumentation).parameters,
+            "Agent Framework must provide enable_message_events; upgrade the agent-framework dependency.",
+        )
+
 
 class TestAgentFrameworkInstrumentorLifecycle(unittest.TestCase):
     """Verify the AgentFrameworkInstrumentor can be activated and torn down."""
