@@ -1,6 +1,9 @@
 # Release History
 # Unreleased
 ### Features Added
+- Enable Agent Framework GenAI message events by default when supported, with
+  an `instrumentation_options["agent_framework"]["enable_message_events"]`
+  override.
 - Add Python-native `InvokeAgentScope` request and response parameter models
   that emit OpenTelemetry GenAI semantic attributes, including structured
   system instructions and cache read/write token counts, introduced by .NET

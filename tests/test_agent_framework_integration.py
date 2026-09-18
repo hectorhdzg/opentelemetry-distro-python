@@ -97,7 +97,10 @@ class TestAgentFrameworkInstrumentorLifecycle(unittest.TestCase):
         with patch.dict("sys.modules", {"agent_framework.observability": mock_af_obs}):
             inst = AgentFrameworkInstrumentor()
             inst._instrument(enable_sensitive_data=True)
-            mock_af_obs.enable_instrumentation.assert_called_once_with(enable_sensitive_data=True)
+            mock_af_obs.enable_instrumentation.assert_called_once_with(
+                enable_sensitive_data=True,
+                enable_message_events=True,
+            )
 
 
 class TestAgentFrameworkSpanProcessor(unittest.TestCase):

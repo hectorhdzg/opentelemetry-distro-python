@@ -274,9 +274,13 @@ use_microsoft_opentelemetry(
     instrumentation_options={
         "flask": {"enabled": False},
         "openai": {"enabled": True},
+        "agent_framework": {"enable_message_events": False},
     },
 )
 ```
+
+Agent Framework message events are enabled by default. Set
+`enable_message_events` to `False` as shown above to disable them.
 
 ### Default Instrumentations When `enable_a365=True`
 
