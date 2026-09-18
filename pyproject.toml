@@ -49,7 +49,7 @@ dependencies = [
 
 [project.optional-dependencies]
 agent-framework = [
-    "agent-framework>=1.4.0",
+    "agent-framework>=1.19.0",
 ]
 openai-agents = [
     "openai-agents>=0.0.7",

@@ -14,7 +14,7 @@ from opentelemetry.trace import get_tracer_provider
 from microsoft.opentelemetry._agent_framework._span_processor import AgentFrameworkSpanProcessor
 
 _logger = logging.getLogger(__name__)
-_instruments = ("agent-framework >= 1.0.0",)
+_instruments = ("agent-framework >= 1.19.0",)
 
 
 class AgentFrameworkInstrumentor(BaseInstrumentor):
