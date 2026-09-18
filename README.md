@@ -287,6 +287,7 @@ For Agent Framework, `enable_sensitive_data` controls prompt, completion,
 tool argument, and tool result capture. Message events are enabled by default
 when the installed Agent Framework version supports them and can be disabled
 with `instrumentation_options["agent_framework"]["enable_message_events"]`.
+Message-event configuration requires Agent Framework 1.19.0 or later.
 
 ### Default Instrumentations When `enable_a365=True`
 

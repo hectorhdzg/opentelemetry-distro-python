@@ -31,7 +31,15 @@ async def get_weather(
 async def main():
     # Set up Azure monitor exporters for telemetry
     # This will automatically enable instrumentation for Agent Framework
-    use_microsoft_opentelemetry(enable_azure_monitor=True)
+    use_microsoft_opentelemetry(
+        enable_azure_monitor=True,
+        enable_sensitive_data=True,
+        instrumentation_options={
+            "agent_framework": {
+                "enable_message_events": True,
+            },
+        },
+    )
 
     questions = [
         "What's the weather in Amsterdam?",
