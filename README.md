@@ -278,24 +278,15 @@ use_microsoft_opentelemetry(
         "agent_framework": {
             "enabled": True,
             "enable_message_events": True,
-            "force": False,
         },
     },
 )
 ```
 
-Agent Framework supports the following configuration:
-
-| Option | Default | Description |
-|---|---|---|
-| `enabled` | `True` | Enable automatic Agent Framework instrumentation. |
-| `enable_sensitive_data` | `False` | Enable prompt, completion, tool argument, and tool result capture. Set this as a top-level `use_microsoft_opentelemetry()` option. |
-| `enable_message_events` | `True` | Emit baseline OpenTelemetry GenAI message events when sensitive-data capture is enabled. |
-| `force` | `False` | Re-enable Agent Framework instrumentation after it was explicitly disabled with `disable_instrumentation()`. |
-
-Set Agent Framework-specific values under
-`instrumentation_options["agent_framework"]`. The shared
-`enable_sensitive_data` option is configured at the top level.
+For Agent Framework, `enable_sensitive_data` controls prompt, completion,
+tool argument, and tool result capture. Message events are enabled by default
+when the installed Agent Framework version supports them and can be disabled
+with `instrumentation_options["agent_framework"]["enable_message_events"]`.
 
 ### Default Instrumentations When `enable_a365=True`
 

@@ -51,8 +51,6 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
                     "Agent Framework SDK does not support configuring message events. "
                     "Upgrade Agent Framework to use enable_message_events."
                 )
-            if "force" in kwargs and ("force" in parameters or accepts_kwargs):
-                enable_kwargs["force"] = kwargs["force"]
             enable_instrumentation(**enable_kwargs)
             self._af_instrumentation_enabled = True
         except ImportError as exc:
