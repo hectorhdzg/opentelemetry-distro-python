@@ -8,8 +8,8 @@
   `{"serialization_error": "Failed to serialize execute tool payload."}` instead of failing the span.
 - Add explicit custom baggage APIs and propagate opted-in attributes to supported GenAI spans, including unmodeled operations. ([#264](https://github.com/microsoft/opentelemetry-distro-python/pull/264))
 - Enable Agent Framework GenAI message events by default when supported, with
-  an `instrumentation_options["agent_framework"]["enable_message_events"]`
-  override.
+  `enable_message_events` and `force` overrides under
+  `instrumentation_options["agent_framework"]`.
 - Add Python-native `InvokeAgentScope` request and response parameter models
   that emit OpenTelemetry GenAI semantic attributes, including structured
   system instructions and cache read/write token counts, introduced by .NET

@@ -43,15 +43,16 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
 
             enable_kwargs = {"enable_sensitive_data": enable_sensitive_data}
             parameters = signature(enable_instrumentation).parameters
-            if "enable_message_events" in parameters or any(
-                parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values()
-            ):
+            accepts_kwargs = any(parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values())
+            if "enable_message_events" in parameters or accepts_kwargs:
                 enable_kwargs["enable_message_events"] = enable_message_events
             else:
                 _logger.debug(
                     "Agent Framework SDK does not support configuring message events. "
                     "Upgrade Agent Framework to use enable_message_events."
                 )
+            if "force" in kwargs and ("force" in parameters or accepts_kwargs):
+                enable_kwargs["force"] = kwargs["force"]
             enable_instrumentation(**enable_kwargs)
             self._af_instrumentation_enabled = True
         except ImportError as exc:
