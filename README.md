@@ -348,6 +348,7 @@ remain enabled by default.
 |---|---|---|
 | [samples/a365/exporter.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/a365/exporter.py) | A365 | LangChain with A365 auto-instrumentation |
 | [samples/a365/manual_telemetry.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/a365/manual_telemetry.py) | A365 | Manual instrumentation using all scope classes |
+| [samples/a365/s2s/s2s_exporter.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/a365/s2s/s2s_exporter.py) | A365 | Store-ready S2S export with all manual observability scopes |
 | [samples/distro/tracing.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/distro/tracing.py) | Azure Monitor | Basic tracing |
 | [samples/distro/metrics.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/distro/metrics.py) | Azure Monitor | Metrics collection |
 | [samples/distro/logging_sample.py](https://github.com/microsoft/opentelemetry-distro-python/blob/main/samples/distro/logging_sample.py) | Azure Monitor | Log export |
