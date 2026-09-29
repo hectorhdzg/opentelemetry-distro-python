@@ -94,7 +94,7 @@ class TestAgentFrameworkInstrumentor(unittest.TestCase):
             instrumentor = AgentFrameworkInstrumentor()
             instrumentor._instrument()
 
-        mock_enable.assert_called_once_with(enable_sensitive_data=False, enable_message_events=True)
+        mock_enable.assert_called_once_with(enable_sensitive_data=False, enable_message_events=True, force=False)
         self.assertTrue(instrumentor._af_instrumentation_enabled)
 
     @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
@@ -114,7 +114,7 @@ class TestAgentFrameworkInstrumentor(unittest.TestCase):
             instrumentor = AgentFrameworkInstrumentor()
             instrumentor._instrument(enable_sensitive_data=True)
 
-        mock_enable.assert_called_once_with(enable_sensitive_data=True, enable_message_events=True)
+        mock_enable.assert_called_once_with(enable_sensitive_data=True, enable_message_events=True, force=False)
         self.assertTrue(instrumentor._af_instrumentation_enabled)
 
     @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
@@ -132,7 +132,25 @@ class TestAgentFrameworkInstrumentor(unittest.TestCase):
             instrumentor = AgentFrameworkInstrumentor()
             instrumentor._instrument(enable_message_events=False)
 
-        mock_enable.assert_called_once_with(enable_sensitive_data=False, enable_message_events=False)
+        mock_enable.assert_called_once_with(enable_sensitive_data=False, enable_message_events=False, force=False)
+        self.assertTrue(instrumentor._af_instrumentation_enabled)
+
+    @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
+    def test_instrument_can_force_reenable_instrumentation(self, mock_get_provider):
+        mock_get_provider.return_value = MagicMock()
+        mock_enable = MagicMock()
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "agent_framework": MagicMock(),
+                "agent_framework.observability": MagicMock(enable_instrumentation=mock_enable),
+            },
+        ):
+            instrumentor = AgentFrameworkInstrumentor()
+            instrumentor._instrument(force=True)
+
+        mock_enable.assert_called_once_with(enable_sensitive_data=False, enable_message_events=True, force=True)
         self.assertTrue(instrumentor._af_instrumentation_enabled)
 
     @patch("microsoft.opentelemetry._agent_framework._trace_instrumentor.get_tracer_provider")
@@ -253,7 +271,7 @@ class TestAgentFrameworkInstrumentor(unittest.TestCase):
                 instrumentor._instrument()
 
             # AF SDK enabled, span processor added, enricher NOT registered.
-            mock_enable.assert_called_once_with(enable_sensitive_data=False, enable_message_events=True)
+            mock_enable.assert_called_once_with(enable_sensitive_data=False, enable_message_events=True, force=False)
             self.assertTrue(instrumentor._af_instrumentation_enabled)
             mock_provider.add_span_processor.assert_called_once()
             self.assertFalse(instrumentor._owns_enricher)
