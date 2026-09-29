@@ -61,3 +61,8 @@ Microsoft Agent Framework is natively instrumented with OpenTelemetry, so you ca
 ```bash
 python sample_maf_agent.py
 ```
+
+The sample enables sensitive-data capture and Agent Framework GenAI message
+events. Sensitive data can include prompts, completions, tool arguments, and
+tool results. Review your data-handling requirements before enabling it in
+production.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Collection
+from inspect import Parameter, signature
 from typing import Any
 
 from opentelemetry.instrumentation.instrumentor import BaseInstrumentor  # type: ignore[attr-defined]
@@ -13,7 +14,7 @@ from opentelemetry.trace import get_tracer_provider
 from microsoft.opentelemetry._agent_framework._span_processor import AgentFrameworkSpanProcessor
 
 _logger = logging.getLogger(__name__)
-_instruments = ("agent-framework >= 1.0.0",)
+_instruments = ("agent-framework >= 1.19.0",)
 
 
 class AgentFrameworkInstrumentor(BaseInstrumentor):
@@ -36,10 +37,24 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
         # Enable the Agent Framework SDK's built-in span generation so users
         # don't need to call enable_instrumentation() manually.
         enable_sensitive_data = kwargs.get("enable_sensitive_data", False)
+        enable_message_events = kwargs.get("enable_message_events", True)
+        force = kwargs.get("force", False)
         try:
             from agent_framework.observability import enable_instrumentation
 
-            enable_instrumentation(enable_sensitive_data=enable_sensitive_data)
+            enable_kwargs = {"enable_sensitive_data": enable_sensitive_data}
+            parameters = signature(enable_instrumentation).parameters
+            accepts_kwargs = any(parameter.kind == Parameter.VAR_KEYWORD for parameter in parameters.values())
+            optional_kwargs = {
+                "enable_message_events": enable_message_events,
+                "force": force,
+            }
+            for name, value in optional_kwargs.items():
+                if name in parameters or accepts_kwargs:
+                    enable_kwargs[name] = value
+                else:
+                    _logger.debug("Agent Framework SDK does not support configuring %s.", name)
+            enable_instrumentation(**enable_kwargs)
             self._af_instrumentation_enabled = True
         except ImportError as exc:
             _logger.debug(
