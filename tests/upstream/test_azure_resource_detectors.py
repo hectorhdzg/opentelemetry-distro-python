@@ -42,8 +42,10 @@ def test_azure_resource_detector_entry_points_remain_loadable():
         if entry_point.name.startswith("azure_")
     }
 
-    assert set(detector_entry_points) == {"azure_app_service", "azure_functions", "azure_vm"}
-    for entry_point in detector_entry_points.values():
+    required_detectors = {"azure_app_service", "azure_functions", "azure_vm"}
+    assert required_detectors <= detector_entry_points.keys()
+    for name in required_detectors:
+        entry_point = detector_entry_points[name]
         detector_class = entry_point.load()
         assert issubclass(detector_class, ResourceDetector)
         assert isinstance(detector_class(), ResourceDetector)

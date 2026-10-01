@@ -98,27 +98,33 @@ def test_aks_identity_is_not_replaced_by_vm_detector(monkeypatch):
     assert "host.id" not in resource.attributes
 
 
-# TODO: Enable after upgrading to opentelemetry-sdk >= 1.45.
-# def test_azure_app_service_instance_id_overrides_generated_id(monkeypatch):
-#     monkeypatch.setenv("OTEL_EXPERIMENTAL_RESOURCE_DETECTORS", "azure_app_service")
-#     monkeypatch.setenv("WEBSITE_SITE_NAME", "orders-api")
-#     monkeypatch.setenv("WEBSITE_INSTANCE_ID", "app-service-worker")
-#
-#     resource = Resource.create()
-#
-#     assert resource.attributes["service.instance.id"] == "app-service-worker"
+@pytest.mark.xfail(
+    strict=True,
+    reason="opentelemetry-sdk 1.44 runs the generated service_instance detector after Azure detectors",
+)
+def test_azure_app_service_instance_id_overrides_generated_id(monkeypatch):
+    monkeypatch.setenv("OTEL_EXPERIMENTAL_RESOURCE_DETECTORS", "azure_app_service")
+    monkeypatch.setenv("WEBSITE_SITE_NAME", "orders-api")
+    monkeypatch.setenv("WEBSITE_INSTANCE_ID", "app-service-worker")
+
+    resource = Resource.create()
+
+    assert resource.attributes["service.instance.id"] == "app-service-worker"
 
 
-# TODO: Enable after upgrading to opentelemetry-sdk >= 1.45.
-# def test_initial_resource_service_instance_id_has_highest_aggregation_priority():
-#     from opentelemetry.sdk.resources import get_aggregated_resources
-#
-#     resource = get_aggregated_resources(
-#         [ServiceInstanceIdResourceDetector()],
-#         initial_resource=Resource({"service.instance.id": "explicit-instance"}),
-#     )
-#
-#     assert resource.attributes["service.instance.id"] == "explicit-instance"
+@pytest.mark.xfail(
+    strict=True,
+    reason="opentelemetry-sdk 1.44 merges process-dependent detector refreshes over explicit resources",
+)
+def test_initial_resource_service_instance_id_has_highest_aggregation_priority():
+    from opentelemetry.sdk.resources import get_aggregated_resources
+
+    resource = get_aggregated_resources(
+        [ServiceInstanceIdResourceDetector()],
+        initial_resource=Resource({"service.instance.id": "explicit-instance"}),
+    )
+
+    assert resource.attributes["service.instance.id"] == "explicit-instance"
 
 
 def _provider_resource(provider):
@@ -127,21 +133,24 @@ def _provider_resource(provider):
     return provider.resource
 
 
-# TODO: Enable after upgrading to opentelemetry-sdk >= 1.45.
-# @pytest.mark.parametrize("provider_class", [TracerProvider, MeterProvider, LoggerProvider])
-# def test_provider_fork_refresh_preserves_explicit_instance_id(monkeypatch, provider_class):
-#     provider = provider_class(
-#         resource=Resource({"service.instance.id": "explicit-instance"}),
-#         shutdown_on_exit=False,
-#     )
-#     child_pid = os.getpid() + 1
-#     monkeypatch.setattr(resources_module.os, "getpid", lambda: child_pid)
-#
-#     try:
-#         provider._handle_fork()
-#         assert _provider_resource(provider).attributes["service.instance.id"] == "explicit-instance"
-#     finally:
-#         provider.shutdown()
+@pytest.mark.parametrize("provider_class", [TracerProvider, MeterProvider, LoggerProvider])
+@pytest.mark.xfail(
+    strict=True,
+    reason="opentelemetry-sdk 1.44 fork refresh overwrites explicit service.instance.id",
+)
+def test_provider_fork_refresh_preserves_explicit_instance_id(monkeypatch, provider_class):
+    provider = provider_class(
+        resource=Resource({"service.instance.id": "explicit-instance"}),
+        shutdown_on_exit=False,
+    )
+    child_pid = os.getpid() + 1
+    monkeypatch.setattr(resources_module.os, "getpid", lambda: child_pid)
+
+    try:
+        provider._handle_fork()
+        assert _provider_resource(provider).attributes["service.instance.id"] == "explicit-instance"
+    finally:
+        provider.shutdown()
 
 
 @pytest.mark.parametrize("provider_class", [TracerProvider, MeterProvider, LoggerProvider])

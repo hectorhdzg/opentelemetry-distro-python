@@ -1,4 +1,5 @@
 import logging
+from unittest.mock import patch
 
 import pytest
 from opentelemetry import baggage, trace
@@ -111,12 +112,16 @@ def test_record_exception_sets_error_status_and_exception_event():
 def test_tracer_provider_force_flush_reaches_span_processor():
     exporter = InMemorySpanExporter()
     provider = TracerProvider(shutdown_on_exit=False)
-    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    processor = SimpleSpanProcessor(exporter)
+    provider.add_span_processor(processor)
 
     with provider.get_tracer("compatibility-tests").start_as_current_span("flush-me"):
         pass
 
-    assert provider.force_flush(timeout_millis=1_000)
+    with patch.object(processor, "force_flush", wraps=processor.force_flush) as force_flush:
+        assert provider.force_flush(timeout_millis=1_000)
+
+    force_flush.assert_called_once()
     assert [span.name for span in exporter.get_finished_spans()] == ["flush-me"]
     provider.shutdown()
 

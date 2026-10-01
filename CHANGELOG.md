@@ -1,6 +1,10 @@
 # Release History
 # Unreleased
 ### Features Added
+- Add network-isolated upstream compatibility tests for Azure resource detectors,
+  OpenTelemetry SDK telemetry contracts, dependency plugins, exporters, and
+  `service.instance.id` precedence and fork-refresh regressions.
+  ([#279](https://github.com/microsoft/opentelemetry-distro-python/pull/279))
 - Add typed Agent365 execute-tool argument and result schema models with `schema_version: "1.0"` serialization,
   `ToolCallAction`/`ToolCallOutcomeStatus`/`ToolPolicyDecision` enums, provider extension data wrapped under
   the JSON `metadata` property, public exports, and `ExecuteToolScope` support while preserving raw

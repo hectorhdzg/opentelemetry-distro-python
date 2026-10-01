@@ -1,5 +1,6 @@
 import importlib
 from importlib.metadata import entry_points, version
+from unittest.mock import patch
 
 import pytest
 from azure.monitor.opentelemetry.exporter import (
@@ -89,11 +90,19 @@ def test_otlp_http_exporters_construct_and_shutdown(exporter_class, endpoint):
     ],
 )
 def test_azure_monitor_exporters_construct_and_shutdown(exporter_class):
-    exporter = exporter_class(
-        connection_string=(
-            "InstrumentationKey=00000000-0000-0000-0000-000000000000;" "IngestionEndpoint=https://example.test/"
+    with (
+        patch(
+            "azure.monitor.opentelemetry.exporter.export._base.get_configuration_manager",
+            return_value=None,
         ),
-        disable_offline_storage=True,
-    )
+        patch.object(exporter_class, "_should_collect_stats", return_value=False),
+        patch.object(exporter_class, "_should_collect_customer_sdkstats", return_value=False),
+    ):
+        exporter = exporter_class(
+            connection_string=(
+                "InstrumentationKey=00000000-0000-0000-0000-000000000000;" "IngestionEndpoint=https://example.test/"
+            ),
+            disable_offline_storage=True,
+        )
 
     exporter.shutdown()
