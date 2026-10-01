@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 from importlib.metadata import entry_points, version
 from unittest.mock import patch
 
@@ -11,6 +12,22 @@ from azure.monitor.opentelemetry.exporter import (
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+
+_LOADABLE_INSTRUMENTORS = {
+    "logging",
+    "requests",
+    "urllib",
+    "urllib3",
+}
+
+_OPTIONAL_RUNTIME_INSTRUMENTORS = {
+    "django": ("opentelemetry.instrumentation.django", "DjangoInstrumentor"),
+    "fastapi": ("opentelemetry.instrumentation.fastapi", "FastAPIInstrumentor"),
+    "flask": ("opentelemetry.instrumentation.flask", "FlaskInstrumentor"),
+    "httpx": ("opentelemetry.instrumentation.httpx", "HTTPXClientInstrumentor"),
+    "httpx2": ("opentelemetry.instrumentation.httpx", "HTTPX2ClientInstrumentor"),
+    "psycopg2": ("opentelemetry.instrumentation.psycopg2", "Psycopg2Instrumentor"),
+}
 
 
 @pytest.mark.parametrize(
@@ -37,18 +54,7 @@ def test_direct_dependency_distribution_and_module_are_available(distribution, m
     [
         (
             "opentelemetry_instrumentor",
-            {
-                "django",
-                "fastapi",
-                "flask",
-                "httpx",
-                "httpx2",
-                "logging",
-                "psycopg2",
-                "requests",
-                "urllib",
-                "urllib3",
-            },
+            _LOADABLE_INSTRUMENTORS | _OPTIONAL_RUNTIME_INSTRUMENTORS.keys(),
         ),
         ("opentelemetry_logs_exporter", {"azure_monitor_opentelemetry_exporter", "otlp_proto_http"}),
         ("opentelemetry_metrics_exporter", {"azure_monitor_opentelemetry_exporter", "otlp_proto_http"}),
@@ -61,10 +67,25 @@ def test_required_plugin_entry_points_load(group, required_names):
     plugins = {plugin.name: plugin for plugin in entry_points(group=group)}
 
     assert required_names <= plugins.keys()
-    if group == "opentelemetry_instrumentor":
-        return
-    for name in required_names:
+    names_to_load = _LOADABLE_INSTRUMENTORS if group == "opentelemetry_instrumentor" else required_names
+    for name in names_to_load:
         assert plugins[name].load()
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_target"),
+    _OPTIONAL_RUNTIME_INSTRUMENTORS.items(),
+)
+def test_optional_runtime_instrumentor_entry_points_target_installed_modules(name, expected_target):
+    plugins = {plugin.name: plugin for plugin in entry_points(group="opentelemetry_instrumentor")}
+    module, attribute = expected_target
+    plugin = plugins[name]
+
+    # These instrumentors import optional user frameworks or drivers when loaded.
+    # Validate their targets without requiring those applications in the distro test environment.
+    assert plugin.module == module
+    assert plugin.attr == attribute
+    assert importlib.util.find_spec(module) is not None
 
 
 @pytest.mark.parametrize(
