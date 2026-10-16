@@ -115,7 +115,7 @@ logger.info("Done. Waiting for export flush...")
 time.sleep(5)
 ```
 
-That's it for the app. `use_microsoft_opentelemetry()` automatically instruments HTTP clients, collects metrics, and — when `logger_name` is provided — captures log records from that logger via the OpenTelemetry logging pipeline. The OTLP exporter is auto-enabled when the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable is set.
+That's it for the app. `use_microsoft_opentelemetry()` automatically instruments HTTP clients, collects metrics, and captures log records via the OpenTelemetry logging pipeline. An explicit `logger_name` selects that logger and its propagating children; an omitted or empty name selects the root logger. Use `disable_logging=True` to disable log collection. The OTLP exporter is auto-enabled when the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable is set.
 
 By default, the SDK uses OTLP/HTTP (port 4318). To point at the collector:
 

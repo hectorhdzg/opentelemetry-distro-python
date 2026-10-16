@@ -12,6 +12,11 @@ Validates that the microsoft distro wrapper:
 """
 
 import importlib
+import logging
+
+import pytest
+from opentelemetry.instrumentation.logging.handler import LoggingHandler
+from opentelemetry.sdk._logs.export import InMemoryLogRecordExporter, SimpleLogRecordProcessor
 import os
 import unittest
 from unittest.mock import MagicMock, patch
@@ -382,65 +387,144 @@ class TestAllConfigOptions(unittest.TestCase):
         self.assertNotIn("enable_azure_monitor", otel_kwargs)
 
 
-class TestSetupLogging(unittest.TestCase):
+@pytest.fixture(name="setup_logging")
+def _setup_logging_fixture(isolated_loggers):
+    providers = []
+
+    def setup(options):
+        provider = _setup_logging(TEST_RESOURCE, options)
+        assert provider is not None
+        providers.append(provider)
+        return provider
+
+    yield setup
+    for provider in providers:
+        provider.shutdown()
+
+
+class TestSetupLogging:
     """Tests for _setup_logging()."""
 
-    def test_creates_logger_provider(self):
+    def test_creates_logger_provider(self, setup_logging):
         """_setup_logging creates a LoggerProvider."""
-        lp = _setup_logging(TEST_RESOURCE, {})
-        self.assertIsNotNone(lp)
+        assert setup_logging({}) is not None
 
-    @patch("opentelemetry._logs.set_logger_provider")
-    def test_adds_log_record_processors(self, set_lp_mock):
-        """_setup_logging adds user-supplied log record processors."""
-        lrp = MagicMock()
-        lp = _setup_logging(TEST_RESOURCE, {"log_record_processors": [lrp]})
-        self.assertIsNotNone(lp)
+    def test_adds_log_record_processors(self, setup_logging):
+        """_setup_logging adds each user-supplied processor once."""
+        processor = MagicMock()
+        provider = setup_logging({"log_record_processors": [processor]})
+        assert provider._multi_log_record_processor._log_record_processors == (processor,)
 
-    @patch("opentelemetry._logs.set_logger_provider")
-    def test_attaches_handler_for_logger_name(self, set_lp_mock):
-        """_setup_logging attaches a LoggingHandler when logger_name is specified."""
-        import logging
+    def test_attaches_handler_for_logger_name(self, isolated_loggers, setup_logging):
+        logger = isolated_loggers("test_distro_logging_handler")
+        provider = setup_logging({"logger_name": logger.name})
+        assert len(logger.handlers) == 1
+        assert isinstance(logger.handlers[0], LoggingHandler)
+        assert logger.handlers[0]._logger_provider is provider
 
-        test_logger_name = "test_distro_logging_handler"
-        test_logger = logging.getLogger(test_logger_name)
-        original_handlers = list(test_logger.handlers)
-
-        try:
-            _setup_logging(TEST_RESOURCE, {"logger_name": test_logger_name})
-            # Should have added a handler
-            self.assertGreater(len(test_logger.handlers), len(original_handlers))
-        finally:
-            # Cleanup: remove any handlers we added
-            for h in list(test_logger.handlers):
-                if h not in original_handlers:
-                    test_logger.removeHandler(h)
-
-    @patch("opentelemetry._logs.set_logger_provider")
-    def test_attaches_handler_with_formatter(self, set_lp_mock):
-        """_setup_logging sets formatter on handler when logging_formatter is provided."""
-        import logging
-
-        test_logger_name = "test_distro_logging_formatter"
-        test_logger = logging.getLogger(test_logger_name)
-        original_handlers = list(test_logger.handlers)
+    def test_attaches_handler_with_formatter(self, isolated_loggers, setup_logging):
+        logger = isolated_loggers("test_distro_logging_formatter")
         formatter = logging.Formatter("%(message)s")
+        setup_logging({"logger_name": logger.name, "logging_formatter": formatter})
+        assert len(logger.handlers) == 1
+        assert logger.handlers[0].formatter is formatter
 
-        try:
-            _setup_logging(
-                TEST_RESOURCE,
-                {
-                    "logger_name": test_logger_name,
-                    "logging_formatter": formatter,
-                },
-            )
-            new_handlers = [h for h in test_logger.handlers if h not in original_handlers]
-            self.assertTrue(len(new_handlers) > 0)
-            self.assertEqual(new_handlers[0].formatter, formatter)
-        finally:
-            for h in list(test_logger.handlers):
-                if h not in original_handlers:
-                    test_logger.removeHandler(h)
+    @pytest.mark.parametrize("options", [{}, {"logger_name": ""}, {"logger_name": None}, {"logger_name": "root"}])
+    def test_default_logger_exports_standard_python_logs(self, options, isolated_loggers, setup_logging):
+        exporter = InMemoryLogRecordExporter()
+        provider = setup_logging({**options, "log_record_processors": [SimpleLogRecordProcessor(exporter)]})
+        logger = isolated_loggers("python_logging.application")
+
+        logger.warning("standard Python log %s", "captured")
+
+        records = exporter.get_finished_logs()
+        assert len(records) == 1
+        assert records[0].log_record.body == "standard Python log captured"
+        assert records[0].resource == TEST_RESOURCE
+        assert records[0].instrumentation_scope.name == logger.name
+        handlers = [handler for handler in isolated_loggers().handlers if isinstance(handler, LoggingHandler)]
+        assert len(handlers) == 1
+        assert handlers[0]._logger_provider is provider
+
+    @pytest.mark.parametrize(
+        "options",
+        [{}, {"logger_name": ""}, {"logger_name": None}, {"logger_name": "root"}]
+        + [{"logger_name": "python_logging.named"}],
+    )
+    def test_repeated_setup_does_not_duplicate_records(self, options, isolated_loggers, setup_logging):
+        logger = isolated_loggers(options.get("logger_name"))
+        existing_handler = logging.NullHandler()
+        logger.addHandler(existing_handler)
+        exporter = InMemoryLogRecordExporter()
+        setup_logging({**options, "log_record_processors": [SimpleLogRecordProcessor(exporter)]})
+        original_handlers = list(logger.handlers)
+
+        setup_logging(options)
+        logger.warning("one record")
+
+        assert logger.handlers == original_handlers
+        assert existing_handler in logger.handlers
+        assert len([handler for handler in logger.handlers if isinstance(handler, LoggingHandler)]) == 1
+        assert [record.log_record.body for record in exporter.get_finished_logs()] == ["one record"]
+
+    def test_explicit_logger_collects_children_and_excludes_other_loggers(self, isolated_loggers, setup_logging):
+        logger = isolated_loggers("python_logging.named")
+        child = isolated_loggers("python_logging.named.child")
+        unrelated = isolated_loggers("python_logging.unrelated")
+        exporter = InMemoryLogRecordExporter()
+        setup_logging({"logger_name": logger.name, "log_record_processors": [SimpleLogRecordProcessor(exporter)]})
+
+        logger.warning("named record")
+        child.warning("child record")
+        unrelated.warning("unrelated record")
+
+        assert [record.log_record.body for record in exporter.get_finished_logs()] == ["named record", "child record"]
+        assert not any(isinstance(handler, LoggingHandler) for handler in isolated_loggers().handlers)
+
+    @pytest.mark.parametrize("options", [{}, {"logger_name": ""}, {"logger_name": "python_logging.formatted"}])
+    def test_formatter_is_applied_to_exported_record(self, options, isolated_loggers, setup_logging):
+        logger = isolated_loggers(options.get("logger_name"))
+        exporter = InMemoryLogRecordExporter()
+        formatter = logging.Formatter("%(levelname)s: %(message)s")
+        setup_logging(
+            {**options, "logging_formatter": formatter, "log_record_processors": [SimpleLogRecordProcessor(exporter)]}
+        )
+
+        logger.warning("formatted %s", "record")
+
+        assert [record.log_record.body for record in exporter.get_finished_logs()] == ["WARNING: formatted record"]
+
+    @pytest.mark.parametrize("logger_name", ["", "python_logging.levels"])
+    def test_respects_logger_levels_and_propagation(self, logger_name, isolated_loggers, setup_logging):
+        logger = isolated_loggers(logger_name)
+        child = isolated_loggers("python_logging.levels.child")
+        child.setLevel(logging.INFO)
+        exporter = InMemoryLogRecordExporter()
+        setup_logging({"logger_name": logger_name, "log_record_processors": [SimpleLogRecordProcessor(exporter)]})
+
+        # A parent's level is not reapplied to records propagated from its children.
+        logger.info("filtered by logger level")
+        child.debug("filtered by child level")
+        child.info("propagated INFO")
+        child.propagate = False
+        child.warning("propagation disabled")
+        child.propagate = True
+        child.disabled = True
+        child.warning("logger disabled")
+
+        assert logger.level == logging.WARNING
+        assert child.level == logging.INFO
+        assert [record.log_record.body for record in exporter.get_finished_logs()] == ["propagated INFO"]
+
+    def test_preserves_existing_logger_settings(self, isolated_loggers, setup_logging):
+        logger = isolated_loggers("python_logging.settings")
+        logger.setLevel(logging.ERROR)
+        logger.propagate = False
+        logger.disabled = True
+        setup_logging({"logger_name": logger.name})
+        assert logger.level == logging.ERROR
+        assert not logger.propagate
+        assert logger.disabled
 
 
 class TestA365KwargsConfiguration(unittest.TestCase):

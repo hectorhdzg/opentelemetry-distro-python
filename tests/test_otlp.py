@@ -13,6 +13,13 @@ Validates:
 """
 
 import os
+
+import pytest
+from opentelemetry.instrumentation.logging.handler import LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, InMemoryLogRecordExporter
+from opentelemetry.sdk.resources import Resource
+
+import microsoft.opentelemetry._distro as distro_module
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -165,8 +172,6 @@ class TestCreateOtlpComponents(unittest.TestCase):
         self.assertIsInstance(components.metric_reader, PeriodicExportingMetricReader)
 
     def test_log_processor_is_batch(self):
-        from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
-
         components = create_otlp_components()
         self.assertIsInstance(components.log_record_processor, BatchLogRecordProcessor)
 
@@ -181,9 +186,10 @@ class TestOtlpHandlersDefault(unittest.TestCase):
         self.assertIsNone(components.log_record_processor)
 
 
-class TestOtlpIntegrationWithDistro(unittest.TestCase):
+class TestOtlpIntegrationWithDistro:
     """Tests that OTLP components are collected and included in provider construction."""
 
+    @patch("microsoft.opentelemetry._distro._initialize_sdkstats")
     @patch("microsoft.opentelemetry._distro._append_azure_monitor_components")
     @patch("microsoft.opentelemetry._distro._setup_instrumentations")
     @patch("microsoft.opentelemetry._distro._setup_logging")
@@ -192,7 +198,15 @@ class TestOtlpIntegrationWithDistro(unittest.TestCase):
     @patch("microsoft.opentelemetry._utils.is_otlp_enabled", return_value=True)
     @patch("microsoft.opentelemetry._utils.create_otlp_components")
     def test_otlp_components_created_when_enabled(
-        self, mock_create, mock_enabled, mock_tracing, mock_metrics, mock_logging, mock_instr, mock_append
+        self,
+        mock_create,
+        mock_enabled,
+        mock_tracing,
+        mock_metrics,
+        mock_logging,
+        mock_instr,
+        mock_append,
+        mock_sdkstats,
     ):
         """When OTLP is enabled, create_otlp_components is called once."""
         mock_create.return_value = OtlpHandlers()
@@ -201,6 +215,7 @@ class TestOtlpIntegrationWithDistro(unittest.TestCase):
         use_microsoft_opentelemetry()
         mock_create.assert_called_once()
 
+    @patch("microsoft.opentelemetry._distro._initialize_sdkstats")
     @patch("microsoft.opentelemetry._distro._append_azure_monitor_components")
     @patch("microsoft.opentelemetry._distro._setup_instrumentations")
     @patch("microsoft.opentelemetry._distro._setup_logging")
@@ -209,7 +224,15 @@ class TestOtlpIntegrationWithDistro(unittest.TestCase):
     @patch("microsoft.opentelemetry._utils.is_otlp_enabled", return_value=False)
     @patch("microsoft.opentelemetry._utils.create_otlp_components")
     def test_otlp_components_not_created_when_disabled(
-        self, mock_create, mock_enabled, mock_tracing, mock_metrics, mock_logging, mock_instr, mock_append
+        self,
+        mock_create,
+        mock_enabled,
+        mock_tracing,
+        mock_metrics,
+        mock_logging,
+        mock_instr,
+        mock_append,
+        mock_sdkstats,
     ):
         """When OTLP is disabled, create_otlp_components is not called."""
         from microsoft.opentelemetry._distro import use_microsoft_opentelemetry
@@ -220,48 +243,46 @@ class TestOtlpIntegrationWithDistro(unittest.TestCase):
     @patch("microsoft.opentelemetry._distro.set_tracer_provider")
     def test_otlp_span_processor_in_tracer_provider(self, mock_set_tp):
         """OTLP span processor is included in TracerProvider at construction."""
-        from opentelemetry.sdk.resources import Resource
         from microsoft.opentelemetry._distro import _setup_tracing
 
         mock_sp = MagicMock()
         tp = _setup_tracing(Resource.create(), {"span_processors": [mock_sp]})
 
-        self.assertIn(mock_sp, tp._active_span_processor._span_processors)
+        assert mock_sp in tp._active_span_processor._span_processors
 
-    def test_otlp_log_processor_in_logger_provider(self):
+    def test_otlp_log_processor_in_logger_provider(self, isolated_loggers):
         """OTLP log processor is included in LoggerProvider at construction."""
-        from opentelemetry.sdk.resources import Resource
         from microsoft.opentelemetry._distro import _setup_logging
 
         mock_lrp = MagicMock()
         lp = _setup_logging(Resource.create(), {"log_record_processors": [mock_lrp]})
 
-        self.assertIn(mock_lrp, lp._multi_log_record_processor._log_record_processors)
+        try:
+            assert lp._multi_log_record_processor._log_record_processors == (mock_lrp,)
+        finally:
+            lp.shutdown()
 
     @patch("microsoft.opentelemetry._distro.set_meter_provider")
     def test_otlp_metric_reader_in_meter_provider(self, mock_set_mp):
         """OTLP metric reader is included in MeterProvider at construction."""
-        from opentelemetry.sdk.resources import Resource
         from microsoft.opentelemetry._distro import _setup_metrics
 
         mock_reader = MagicMock()
         mp = _setup_metrics(Resource.create(), {"metric_readers": [mock_reader]})
 
-        self.assertIn(mock_reader, mp._all_metric_readers)
+        assert mock_reader in mp._all_metric_readers
 
     @patch("microsoft.opentelemetry._distro.set_tracer_provider")
     def test_no_extra_processors_when_otlp_disabled(self, mock_set_tp):
         """When no OTLP, no extra processors are added."""
-        from opentelemetry.sdk.resources import Resource
         from microsoft.opentelemetry._distro import _setup_tracing
 
         tp = _setup_tracing(Resource.create(), {})
-        self.assertEqual(len(tp._active_span_processor._span_processors), 0)
+        assert len(tp._active_span_processor._span_processors) == 0
 
     @patch("microsoft.opentelemetry._distro.set_tracer_provider")
     def test_user_and_otlp_processors_both_included(self, mock_set_tp):
         """Both user-supplied and OTLP span processors are included."""
-        from opentelemetry.sdk.resources import Resource
         from microsoft.opentelemetry._distro import _setup_tracing
 
         user_sp = MagicMock()
@@ -269,8 +290,57 @@ class TestOtlpIntegrationWithDistro(unittest.TestCase):
         tp = _setup_tracing(Resource.create(), {"span_processors": [user_sp, otlp_sp]})
 
         processors = tp._active_span_processor._span_processors
-        self.assertIn(user_sp, processors)
-        self.assertIn(otlp_sp, processors)
+        assert user_sp in processors
+        assert otlp_sp in processors
+
+    @pytest.mark.parametrize(
+        "options",
+        [{}, {"logger_name": ""}, {"logger_name": None}, {"logger_name": "root"}]
+        + [{"logger_name": "python_logging.otlp"}],
+    )
+    @pytest.mark.parametrize("disable_logging", [False, True])
+    def test_plain_otlp_onboarding(self, options, disable_logging, isolated_loggers, monkeypatch):
+        """Exercise the public entry point and real batch processor with a local exporter."""
+        from opentelemetry.exporter.otlp.proto.http import _log_exporter
+
+        exporter = InMemoryLogRecordExporter()
+        providers = []
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+        monkeypatch.setattr(_log_exporter, "OTLPLogExporter", lambda: exporter)
+        monkeypatch.setattr(distro_module, "_initialize_configuration_manager", lambda: None)
+        monkeypatch.setattr(distro_module, "_initialize_sdkstats", lambda *args: None)
+        monkeypatch.setattr(distro_module, "_setup_instrumentations", lambda *args, **kwargs: None)
+        monkeypatch.setattr(distro_module, "set_logger_provider", providers.append)
+        logger = isolated_loggers(options.get("logger_name"))
+
+        try:
+            distro_module.use_microsoft_opentelemetry(
+                **options,
+                disable_logging=disable_logging,
+                disable_tracing=True,
+                disable_metrics=True,
+                resource=Resource({"service.name": "python-logging-regression"}),
+            )
+            logger.warning("OTLP application record")
+            if disable_logging:
+                assert not providers
+                assert not any(isinstance(handler, LoggingHandler) for handler in logger.handlers)
+                assert not exporter.get_finished_logs()
+            else:
+                assert len(providers) == 1
+                handlers = [handler for handler in logger.handlers if isinstance(handler, LoggingHandler)]
+                assert len(handlers) == 1
+                assert handlers[0]._logger_provider is providers[0]
+                processors = providers[0]._multi_log_record_processor._log_record_processors
+                assert len(processors) == 1
+                assert isinstance(processors[0], BatchLogRecordProcessor)
+                assert providers[0].force_flush()
+                assert [record.log_record.body for record in exporter.get_finished_logs()] == [
+                    "OTLP application record"
+                ]
+        finally:
+            for provider in providers:
+                provider.shutdown()
 
 
 if __name__ == "__main__":

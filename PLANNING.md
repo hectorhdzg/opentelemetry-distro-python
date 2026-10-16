@@ -89,6 +89,7 @@ Design guidelines:
 - ~~When Azure Monitor export is not requested, create providers without the exporter (now trivial since the code is in-repo)~~
 - ~~Add OTLP export for traces, logs, and metrics on top of the providers~~
 - ~~Add hooks for custom span processors, log processors, metric readers, and views~~
+- Collect standard Python logs from the root logger by default across exporter paths; an explicit `logger_name` limits collection to that logger and its propagating children, and `disable_logging=True` disables the logging pipeline.
 - Add sampling configuration support — **TODO: post-stable**
 
 ## Phase 5: Additional Instrumentation (This Package Only)

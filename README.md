@@ -109,7 +109,7 @@ string arguments/results remain supported. See the A365 guide for complete examp
 | `log_record_processors` | `list` | `[]` | Additional log record processors. |
 | `metric_readers` | `list` | `[]` | Additional metric readers. |
 | `views` | `list` | `[]` | Metric views. |
-| `logger_name` | `str` | `None` | Logger name for log collection. |
+| `logger_name` | `str` | `""` | Logger name for log collection. Omitted or empty names collect from the root logger; use `disable_logging=True` to disable collection. |
 | `logging_formatter` | `Formatter` | `None` | Formatter for collected logs. |
 | `instrumentation_options` | `dict` | `None` | Per-library instrumentation enable/disable options. |
 | `enable_trace_based_sampling_for_logs` | `bool` | `False` | Enable trace-based sampling for logs. |

@@ -1,4 +1,11 @@
 # Release History
+# Unreleased
+### Bugs Fixed
+- Attach the Python logging handler to the root logger when `logger_name` is
+  omitted or empty in the plain OpenTelemetry setup, including OTLP export,
+  while preserving duplicate-handler protection.
+  ([#287](https://github.com/microsoft/opentelemetry-distro-python/issues/287))
+
 # 1.4.0 (2026-10-07)
 ### Features Added
 - Add network-isolated upstream compatibility tests for Azure resource detectors,

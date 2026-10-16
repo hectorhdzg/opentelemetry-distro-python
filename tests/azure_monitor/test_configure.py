@@ -12,6 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import unittest
+import logging
+import os
+from contextlib import ExitStack
+
+import pytest
+from opentelemetry.instrumentation.logging.handler import LoggingHandler
+from opentelemetry.sdk._logs import LoggerProvider
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, InMemoryLogRecordExporter
+
+import microsoft.opentelemetry._distro as distro_module
 from unittest.mock import Mock, patch
 
 from opentelemetry.sdk.resources import Resource
@@ -403,6 +413,7 @@ class TestConfigure(unittest.TestCase):
         pcsp_mock.assert_not_called()
         self.assertEqual(result, tp_init_mock)
 
+    @pytest.mark.usefixtures("isolated_loggers")
     @patch("microsoft.opentelemetry._azure_monitor._configure._PerformanceCountersLogRecordProcessor")
     def test_setup_logging(self, pclp_mock):
         log_exporter_mock = Mock()
@@ -436,12 +447,21 @@ class TestConfigure(unittest.TestCase):
             },
         ):
             result = _setup_logging(configurations)
+            self.addCleanup(result.shutdown)
 
         log_exporter_mock.assert_called_once_with(**configurations)
         blrp_mock.assert_called_once_with(log_exp_init_mock, {"enable_trace_based_sampling_for_logs": False})
         pclp_mock.assert_called_once_with()
         self.assertIsNotNone(result)
+        self.assertEqual(
+            result._multi_log_record_processor._log_record_processors,
+            (custom_lrp, pclp_init_mock, blrp_init_mock),
+        )
+        handlers = [handler for handler in logging.getLogger().handlers if isinstance(handler, LoggingHandler)]
+        self.assertEqual(len(handlers), 1)
+        self.assertIs(handlers[0]._logger_provider, result)
 
+    @pytest.mark.usefixtures("isolated_loggers")
     @patch("microsoft.opentelemetry._azure_monitor._configure._PerformanceCountersLogRecordProcessor")
     def test_setup_logging_duplicate_logger(self, pclp_mock):
         log_exporter_mock = Mock()
@@ -475,12 +495,23 @@ class TestConfigure(unittest.TestCase):
             },
         ):
             result = _setup_logging(configurations)
+            self.addCleanup(result.shutdown)
+            original_handlers = list(logging.getLogger().handlers)
+            second_provider = _setup_logging(configurations)
+            self.addCleanup(second_provider.shutdown)
+            self.assertEqual(logging.getLogger().handlers, original_handlers)
+            handlers = [handler for handler in original_handlers if isinstance(handler, LoggingHandler)]
+            self.assertEqual(len(handlers), 1)
+            self.assertIs(handlers[0]._logger_provider, result)
 
-        log_exporter_mock.assert_called_once_with(**configurations)
-        blrp_mock.assert_called_once_with(log_exp_init_mock, {"enable_trace_based_sampling_for_logs": True})
-        pclp_mock.assert_called_once_with()
+        self.assertEqual(log_exporter_mock.call_count, 2)
+        log_exporter_mock.assert_called_with(**configurations)
+        self.assertEqual(blrp_mock.call_count, 2)
+        blrp_mock.assert_called_with(log_exp_init_mock, {"enable_trace_based_sampling_for_logs": True})
+        self.assertEqual(pclp_mock.call_count, 2)
         self.assertIsNotNone(result)
 
+    @pytest.mark.usefixtures("isolated_loggers")
     @patch("microsoft.opentelemetry._azure_monitor._configure._PerformanceCountersLogRecordProcessor")
     def test_setup_logging_disable_performance_counters(self, pclp_mock):
         log_exporter_mock = Mock()
@@ -512,11 +543,96 @@ class TestConfigure(unittest.TestCase):
             },
         ):
             result = _setup_logging(configurations)
+            self.addCleanup(result.shutdown)
 
         log_exporter_mock.assert_called_once_with(**configurations)
         blrp_mock.assert_called_once_with(log_exp_init_mock, {"enable_trace_based_sampling_for_logs": False})
         pclp_mock.assert_not_called()
         self.assertIsNotNone(result)
+
+    @pytest.mark.usefixtures("isolated_loggers")
+    def test_setup_logging_with_otlp(self):
+        """The public Azure + OTLP path shares one handler/provider and exports once to each."""
+        from azure.monitor.opentelemetry.exporter.export.logs._processor import _AzureBatchLogRecordProcessor
+        from microsoft.opentelemetry._genai.main_agent import GenAIMainAgentLogRecordProcessor
+
+        azure_exporter = InMemoryLogRecordExporter()
+        otlp_exporter = InMemoryLogRecordExporter()
+        logger = logging.getLogger()
+        with ExitStack() as stack:
+
+            def create_provider(**kwargs):
+                provider = LoggerProvider(**kwargs)
+                stack.callback(provider.shutdown)
+                return provider
+
+            stack.enter_context(
+                patch.dict(
+                    os.environ,
+                    {
+                        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:4318",
+                        "OTEL_LOGS_EXPORTER": "otlp",
+                        "OTEL_TRACES_EXPORTER": "none",
+                        "OTEL_METRICS_EXPORTER": "none",
+                    },
+                )
+            )
+            azure_factory = stack.enter_context(
+                patch("azure.monitor.opentelemetry.exporter.AzureMonitorLogExporter", return_value=azure_exporter)
+            )
+            otlp_factory = stack.enter_context(
+                patch(
+                    "opentelemetry.exporter.otlp.proto.http._log_exporter.OTLPLogExporter", return_value=otlp_exporter
+                )
+            )
+            provider_factory = stack.enter_context(
+                patch("opentelemetry.sdk._logs.LoggerProvider", side_effect=create_provider)
+            )
+            set_provider = stack.enter_context(patch("microsoft.opentelemetry._distro.set_logger_provider"))
+            plain_setup = stack.enter_context(patch("microsoft.opentelemetry._distro._setup_logging"))
+            for target in (
+                "microsoft.opentelemetry._distro._initialize_configuration_manager",
+                "microsoft.opentelemetry._distro._initialize_sdkstats",
+                "microsoft.opentelemetry._distro._setup_instrumentations",
+                "microsoft.opentelemetry._azure_monitor._configure._setup_azure_instrumentations",
+                "microsoft.opentelemetry._azure_monitor._configure._setup_browser_sdk_loader",
+            ):
+                stack.enter_context(patch(target))
+
+            distro_module.use_microsoft_opentelemetry(
+                enable_azure_monitor=True,
+                azure_monitor_connection_string="InstrumentationKey=00000000-0000-0000-0000-000000000000",
+                azure_monitor_enable_performance_counters=False,
+                azure_monitor_enable_live_metrics=False,
+                disable_tracing=True,
+                disable_metrics=True,
+                disable_logging=False,
+                resource=TEST_RESOURCE,
+            )
+            plain_setup.assert_not_called()
+            provider_factory.assert_called_once()
+            set_provider.assert_called_once()
+            provider = set_provider.call_args.args[0]
+            self.assertIs(provider_factory.call_args.kwargs["resource"], provider.resource)
+            self.assertEqual(provider.resource.attributes["foo"], "bar")
+            handlers = [handler for handler in logger.handlers if isinstance(handler, LoggingHandler)]
+            self.assertEqual(len(handlers), 1)
+            self.assertIs(handlers[0]._logger_provider, provider)
+            processors = provider._multi_log_record_processor._log_record_processors
+            self.assertEqual(len(processors), 3)
+            self.assertIsInstance(processors[0], GenAIMainAgentLogRecordProcessor)
+            self.assertIs(type(processors[1]), BatchLogRecordProcessor)
+            self.assertIsInstance(processors[2], _AzureBatchLogRecordProcessor)
+            self.assertEqual(len({id(processor) for processor in processors}), 3)
+            azure_factory.assert_called_once()
+            otlp_factory.assert_called_once_with()
+
+            logger.warning("Azure + OTLP application record")
+            self.assertTrue(provider.force_flush())
+            for exporter in (azure_exporter, otlp_exporter):
+                records = exporter.get_finished_logs()
+                self.assertEqual([record.log_record.body for record in records], ["Azure + OTLP application record"])
+                self.assertIs(records[0].resource, provider.resource)
 
     @patch(
         "microsoft.opentelemetry._azure_monitor._configure.enable_performance_counters",
