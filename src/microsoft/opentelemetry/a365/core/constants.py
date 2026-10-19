@@ -24,7 +24,11 @@ GEN_AI_PROCESSOR_OPERATION_NAMES: frozenset[str] = frozenset(
         CHAT_OPERATION_NAME,
         APPLY_GUARDRAIL_OPERATION_NAME,
     }
+    # Legacy InferenceOperationType.value spellings (e.g. "TextCompletion"), kept for
+    # backward compatibility with spans emitted before operation names were normalized.
     | {operation.value for operation in InferenceOperationType}
+    # Canonical lowercase OTel values (e.g. "text_completion") emitted by InferenceScope today.
+    | {operation.name.lower() for operation in InferenceOperationType}
 )
 
 # --- Baggage metadata ---

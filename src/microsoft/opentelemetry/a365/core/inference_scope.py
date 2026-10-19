@@ -17,6 +17,9 @@ from microsoft.opentelemetry.a365.core.constants import (
     GEN_AI_PROVIDER_NAME_KEY,
     GEN_AI_REQUEST_MODEL_KEY,
     GEN_AI_RESPONSE_FINISH_REASONS_KEY,
+    GEN_AI_RESPONSE_MODEL_KEY,
+    GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS_KEY,
+    GEN_AI_USAGE_CACHE_WRITE_INPUT_TOKENS_KEY,
     GEN_AI_USAGE_INPUT_TOKENS_KEY,
     GEN_AI_USAGE_OUTPUT_TOKENS_KEY,
     SERVER_ADDRESS_KEY,
@@ -95,9 +98,10 @@ class InferenceScope(OpenTelemetryScope):
             else SpanDetails(span_kind=SpanKind.CLIENT)
         )
 
+        operation_name = details.operationName.name.lower()
         super().__init__(
-            operation_name=details.operationName.value,
-            activity_name=f"{details.operationName.value} {details.model}",
+            operation_name=operation_name,
+            activity_name=f"{operation_name} {details.model}",
             agent_details=agent_details,
             span_details=resolved_span_details,
         )
@@ -106,8 +110,9 @@ class InferenceScope(OpenTelemetryScope):
             self.record_input_messages(request.content)
         self.set_tag_maybe(GEN_AI_CONVERSATION_ID_KEY, request.conversation_id)
 
-        self.set_tag_maybe(GEN_AI_OPERATION_NAME_KEY, details.operationName.value)
+        self.set_tag_maybe(GEN_AI_OPERATION_NAME_KEY, operation_name)
         self.set_tag_maybe(GEN_AI_REQUEST_MODEL_KEY, details.model)
+        self.set_tag_maybe(GEN_AI_RESPONSE_MODEL_KEY, details.responseModel)
         self.set_tag_maybe(GEN_AI_PROVIDER_NAME_KEY, details.providerName)
         self.set_tag_maybe(
             GEN_AI_USAGE_INPUT_TOKENS_KEY,
@@ -117,6 +122,8 @@ class InferenceScope(OpenTelemetryScope):
             GEN_AI_USAGE_OUTPUT_TOKENS_KEY,
             details.outputTokens if details.outputTokens is not None else None,
         )
+        self.set_tag_maybe(GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS_KEY, details.cacheReadInputTokens)
+        self.set_tag_maybe(GEN_AI_USAGE_CACHE_WRITE_INPUT_TOKENS_KEY, details.cacheWriteInputTokens)
         self.set_tag_maybe(
             GEN_AI_RESPONSE_FINISH_REASONS_KEY,
             safe_json_dumps(details.finishReasons) if details.finishReasons else None,
@@ -127,7 +134,7 @@ class InferenceScope(OpenTelemetryScope):
         if details.endpoint:
             self.set_tag_maybe(SERVER_ADDRESS_KEY, details.endpoint.hostname)
             if details.endpoint.port:
-                self.set_tag_maybe(SERVER_PORT_KEY, str(details.endpoint.port))
+                self.set_tag_maybe(SERVER_PORT_KEY, details.endpoint.port)
 
         # Set request metadata if provided
         if request.channel:
@@ -183,6 +190,18 @@ class InferenceScope(OpenTelemetryScope):
             output_tokens: Number of output tokens
         """
         self.set_tag_maybe(GEN_AI_USAGE_OUTPUT_TOKENS_KEY, output_tokens)
+
+    def record_response_model(self, response_model: str) -> None:
+        """Records the canonical model name returned by the provider."""
+        self.set_tag_maybe(GEN_AI_RESPONSE_MODEL_KEY, response_model)
+
+    def record_cache_read_input_tokens(self, cache_read_input_tokens: int) -> None:
+        """Records the number of input tokens read from cache."""
+        self.set_tag_maybe(GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS_KEY, cache_read_input_tokens)
+
+    def record_cache_write_input_tokens(self, cache_write_input_tokens: int) -> None:
+        """Records the number of input tokens written to cache."""
+        self.set_tag_maybe(GEN_AI_USAGE_CACHE_WRITE_INPUT_TOKENS_KEY, cache_write_input_tokens)
 
     def record_finish_reasons(self, finish_reasons: List[str]) -> None:
         """Records the finish reasons for telemetry tracking.

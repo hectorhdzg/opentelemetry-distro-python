@@ -72,7 +72,10 @@ class TestA365SpanProcessor(unittest.TestCase):
             OUTPUT_MESSAGES_OPERATION_NAME,
             CHAT_OPERATION_NAME,
             APPLY_GUARDRAIL_OPERATION_NAME,
+            # Legacy PascalCase InferenceOperationType.value spellings (e.g. "TextCompletion").
             *(operation.value for operation in InferenceOperationType),
+            # Canonical lowercase spellings (e.g. "text_completion") emitted by InferenceScope today.
+            *(operation.name.lower() for operation in InferenceOperationType),
         }
         self.assertEqual(GEN_AI_PROCESSOR_OPERATION_NAMES, expected)
 
@@ -603,6 +606,37 @@ class TestA365SpanProcessor(unittest.TestCase):
         processor.on_start(span, parent_context=ctx)
 
         span.set_attribute.assert_not_called()
+
+    def test_canonical_inference_span_name_does_not_inherit_invoke_agent_baggage(self):
+        """A canonical span name (e.g. "text_completion gpt-4o") without an explicit
+        gen_ai.operation.name attribute must be recognized from the span name itself,
+        rather than falling through to inherited invoke_agent baggage. Regression test
+        for https://github.com/microsoft/opentelemetry-distro-python/pull/289#discussion_r4281362519.
+        """
+        for operation_name in ("chat", "text_completion", "generate_content"):
+            with self.subTest(operation_name=operation_name):
+                processor = A365SpanProcessor(tenant_id="tenant", agent_id="agent")
+                span = _mock_span(f"{operation_name} gpt-4o", scope_name=OPENAI_V2_SCOPE)
+
+                ctx = baggage.set_baggage(
+                    GEN_AI_OPERATION_NAME_KEY, INVOKE_AGENT_OPERATION_NAME, context.get_current()
+                )
+                ctx = baggage.set_baggage("microsoft.a365.caller.agent.id", "caller-agent", ctx)
+                ctx = baggage.set_baggage("server.address", "caller-host", ctx)
+                ctx = baggage.set_baggage("user.id", "user", ctx)
+
+                processor.on_start(span, parent_context=ctx)
+
+                # Common identity/baggage keys are still enriched.
+                span.set_attribute.assert_any_call("microsoft.tenant.id", "tenant")
+                span.set_attribute.assert_any_call("gen_ai.agent.id", "agent")
+                span.set_attribute.assert_any_call("user.id", "user")
+
+                # Invoke_agent-only attributes inherited from baggage must not leak onto
+                # this inference span now that its operation is recognized by name.
+                applied_keys = {call.args[0] for call in span.set_attribute.call_args_list}
+                self.assertNotIn("microsoft.a365.caller.agent.id", applied_keys)
+                self.assertNotIn("server.address", applied_keys)
 
     def test_none_context(self):
         processor = A365SpanProcessor()

@@ -1,5 +1,8 @@
 # Release History
 # Unreleased
+### Features Added
+- Add privacy-safe Model Observation attributes to `InferenceScope`, including the canonical served response model, cache read/write input-token counts, lowercase operation names, and numeric endpoint ports. Attributes can be supplied when the scope starts or recorded after the response is available. ([#289](https://github.com/microsoft/opentelemetry-distro-python/pull/289))
+
 ### Bugs Fixed
 - Attach the Python logging handler to the root logger when `logger_name` is
   omitted or empty in the plain OpenTelemetry setup, including OTLP export,

@@ -20,3 +20,6 @@ class InferenceCallDetails:
     finishReasons: list[str] | None = None
     thoughtProcess: str | None = None
     endpoint: ServiceEndpoint | None = None
+    responseModel: str | None = None
+    cacheReadInputTokens: int | None = None
+    cacheWriteInputTokens: int | None = None
