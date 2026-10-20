@@ -37,7 +37,7 @@ class AgentFrameworkInstrumentor(BaseInstrumentor):
         # Enable the Agent Framework SDK's built-in span generation so users
         # don't need to call enable_instrumentation() manually.
         enable_sensitive_data = kwargs.get("enable_sensitive_data", False)
-        enable_message_events = kwargs.get("enable_message_events", True)
+        enable_message_events = kwargs.get("enable_message_events", False)
         force = kwargs.get("force", False)
         try:
             from agent_framework.observability import enable_instrumentation
