@@ -99,7 +99,7 @@ class TestAgentFrameworkInstrumentorLifecycle(unittest.TestCase):
             inst._instrument(enable_sensitive_data=True)
             mock_af_obs.enable_instrumentation.assert_called_once_with(
                 enable_sensitive_data=True,
-                enable_message_events=True,
+                enable_message_events=False,
                 force=False,
             )
 

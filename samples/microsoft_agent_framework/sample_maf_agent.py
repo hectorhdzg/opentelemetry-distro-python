@@ -36,7 +36,7 @@ async def main():
         enable_sensitive_data=True,
         instrumentation_options={
             "agent_framework": {
-                "enable_message_events": True,
+                "enable_message_events": False,
             },
         },
     )
