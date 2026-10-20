@@ -306,8 +306,7 @@ use_microsoft_opentelemetry(
 
 For Agent Framework, `enable_sensitive_data` controls prompt, completion,
 tool argument, and tool result capture. Message events are disabled by default
-to avoid duplicating sensitive content in logs when capture is enabled. They
-can be enabled with
+so enabling sensitive data does not create message event logs. They can be enabled with
 `instrumentation_options["agent_framework"]["enable_message_events"]`.
 Set `instrumentation_options["agent_framework"]["force"]` to `True` to
 re-enable Agent Framework instrumentation after it was previously disabled.
