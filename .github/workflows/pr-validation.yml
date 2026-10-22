@@ -145,6 +145,10 @@ jobs:
           AZURE_OPENAI_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOYMENT }}
           AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
         run: |
+          if [ -z "$AZURE_OPENAI_API_KEY" ]; then
+            echo "::notice::AZURE_OPENAI_API_KEY is not available (secret missing or fork PR); skipping integration tests."
+            exit 0
+          fi
           python -m pip install -r dev_requirements.txt
           python -m pip install -e .[langchain,agent-framework]
           python -m pytest -v tests/a365/integration
